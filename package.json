@@ -10,6 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@types/lodash": "^4.17.21",
+    "@types/papaparse": "^5.5.1",
+    "decimal.js": "^10.6.0",
+    "lodash": "^4.17.21",
+    "papaparse": "^5.5.3",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
