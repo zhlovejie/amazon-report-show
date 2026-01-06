@@ -1,30 +1,39 @@
+import LoadFileCsv from "@/components/loadFileCsv";
+import ReprotShow from "@/components/ReportShow";
+import type { CallbackPrams,ReprotItem } from "@/types/common";
+import { ReportCalc } from "@/utils/calc";
+import { useState } from "react";
 
-import LoadFileCsv from "@/components/loadFileCsv"
-import type { CallbackPrams } from "@/types/common";
-import {ReportCalc} from "@/utils/calc"
 function App() {
+  const [reportList,setReportList] = useState<Array<ReprotItem>>([])
 
-  // const [orderData,setOrderData] = 
-
-  function csvDataCallback({status,message,orderData,storageData}:CallbackPrams){
-    if(status === 'error'){
-      console.error(message)
-      return
+  function csvDataCallback({
+    status,
+    message,
+    orderData,
+    storageData,
+  }: CallbackPrams) {
+    if (status === "error") {
+      console.error(message);
+      return;
     }
-    if(status === 'ok'){
-      console.log(orderData)
-      console.log(storageData)
-      if(orderData && storageData){
-        let ReportCalcInstance =  new ReportCalc({orderData, storageData })
-        ReportCalcInstance.init()
+    if (status === "ok") {
+      if (orderData && storageData) {
+        let ReportCalcInstance = new ReportCalc({ orderData, storageData });
+        ReportCalcInstance.init();
+
+        setReportList(ReportCalcInstance.getReportList())
       }
     }
   }
   return (
     <>
-      <LoadFileCsv callback={csvDataCallback}/>
+      <div className=" min-w-xl max-w-5xl m-auto">
+        <LoadFileCsv callback={csvDataCallback} />
+        <ReprotShow data={reportList} className=" mt-5" />
+      </div>
     </>
-  )
+  );
 }
 
-export default App
+export default App;
