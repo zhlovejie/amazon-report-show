@@ -332,10 +332,14 @@ type StorageHeaderKeyType = ValueOfProperty<
 
 export type OrderHeaderKeyTypeObject = {
   [K in OrderHeaderKeyType]: string;
+}&{
+  __status:'pending' | 'done'
 };
 
 export type StorageHeaderKeyTypeObject = {
   [K in StorageHeaderKeyType]: string;
+}&{
+  __status:'pending' | 'done'
 };
 
 export type ReportCalcConstructorParams = {
@@ -347,12 +351,89 @@ type ReprotItemKnowKeys = {
   -readonly [K in keyof typeof ORDER_HEADER_KEYS_OBJECT]?: string;
 };
 
-type ReprotItemAdditionalKeys = {
-  [key: string]: string | number;
+export type ReprotItem = ReprotItemKnowKeys & {
+   "__no":number,
+    "__name": string,
+    "__fnsku": string,
+    "__asin": string,
+    "__sku": string,
+    [key: string]: string | number | boolean | undefined  // 直接在这里添加索引签名
 };
-
-export type ReprotItem = ReprotItemKnowKeys & ReprotItemAdditionalKeys;
 
 export type ReportObjectType = {
-  [key: string]: ReprotItem;
+  [key: string]: ReprotItem | {};
 };
+
+export type CallbackPrams = {
+  status: "ok" | "error";
+  message?:string;
+  orderData?:Array<any>;
+  storageData?:Array<any>;
+  adsData?:AdvertisingBillData
+}
+
+
+
+/**
+ * 账单汇总金额信息
+ */
+interface StatementSummaryTotals {
+  /** 总广告活动费用 */
+  total_campaign_charges: number;
+  /** 总调整金额 */
+  total_adjustments: number;
+  /** 总监管广告费 */
+  total_regulatory_advertising_fees: number;
+  /** 小计金额 */
+  sub_total: number;
+  /** 应付总金额 */
+  total_amount_due: number;
+}
+
+/**
+ * 单个广告活动详情
+ */
+interface CampaignDetail {
+  /** 广告活动名称 */
+  campaign_name: string;
+  /** 广告活动类型 */
+  campaign_type: string;
+  /** 广告活动ID */
+  campaign_id: string;
+  /** 不含税金额 */
+  amount_ex_tax: number;
+  /** 发票ID */
+  invoice_id: string;
+}
+
+/**
+ * 单个国家的广告活动详情
+ */
+interface SingleCountryCampaignDetails {
+  /** 国家名称 */
+  country_name: string;
+  /** 总广告活动费用 */
+  total_campaign_charges: number;
+  /** 广告活动详情表格数据 */
+  campaign_details_table: CampaignDetail[];
+  /** 广告活动费用详情总计 */
+  campaign_charge_details_total: number;
+}
+
+/**
+ * 广告账单数据主接口
+ */
+export interface AdvertisingBillData {
+  /** 账单汇总信息 */
+  statement_summary_totals: StatementSummaryTotals;
+  /** 单个国家广告活动详情 */
+  single_country_campaign_details: SingleCountryCampaignDetails;
+}
+
+
+export interface ResultAdvertisingBillData {
+  "success": true | false,
+  "data":AdvertisingBillData | null,
+  "message"?:string,
+  "raw_text"?:string
+}

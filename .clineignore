@@ -1,0 +1,29 @@
+#Cline AI 专用排查文件配置！！！
+
+# 依赖包（最占用 Token 的部分）
+node_modules/
+dist/
+build/
+target/
+venv/
+.venv/
+__pycache__/
+mysql_data/
+
+# 系统与 IDE 文件
+.DS_Store
+.vscode/
+.idea/
+.git/
+
+# 巨大的日志或数据文件
+*.log
+logs/
+data/*.json
+data/*.csv
+
+# 排除大型二进制文件
+*.png
+*.jpg
+*.pdf
+*.exe

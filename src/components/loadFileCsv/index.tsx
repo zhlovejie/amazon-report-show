@@ -2,22 +2,15 @@ import { useRef, useState } from "react";
 import Papa from "papaparse";
 import numbro from "numbro"
 import {CURRENCY_FORMATTER_OBJECT} from "@/types/common";
-import { loadOrderByMock, loadStorageByMock } from "@/mockdata/test";
+// import { loadOrderByMock, loadStorageByMock } from "@/mockdata/test";
 import Button from "@/components/Button";
-
-
-type CallbackPrams = {
-  status: "ok" | "error";
-  message?:string;
-  orderData?:Array<any>;
-  storageData?:Array<any>;
-};
-
+import {md5WithChinese,getAdsFromCache} from '@/utils/common'
+import type { CallbackPrams } from "@/types/common";
 type LoadFileCsvProps = {
   callback: (params: CallbackPrams) => void;
 };
 
-type ReportFileType = "order" | "storage" | "advertisement";
+type ReportFileType = "order" | "storage" | "ads";
 
 /**
  * 上传文件，返回解析csv数据
@@ -25,14 +18,18 @@ type ReportFileType = "order" | "storage" | "advertisement";
  * @returns
  */
 function LoadFileCsv({ callback }: LoadFileCsvProps) {
-  const IS_TEST_MODEL = true;
+  // const IS_TEST_MODEL = true;
 
   const [selectedOrderFile, setSelectedOrderFile] = useState<File | null>(null);
   const [selectedStorageFile, setSelectedStorageFile] = useState<File | null>(
     null
   );
+  const [selectedAdsFile, setSelectedAdsFile] = useState<File | null>(
+    null
+  );
   const fileInputOrderRef = useRef<HTMLInputElement>(null);
   const fileInputStorageRef = useRef<HTMLInputElement>(null);
+  const fileInputAdsRef = useRef<HTMLInputElement>(null);
 
   const [fileInputOrderName, setFileInputOrderName] = useState<string | null>(
     null
@@ -40,6 +37,11 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
   const [fileInputStorageName, setFileInputStorageName] = useState<
     string | null
   >(null);
+  const [fileInputAdsName, setFileInputAdsName] = useState<
+    string | null
+  >(null);
+
+  
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const elementName = event.target.name;
@@ -55,6 +57,10 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
         case "storagefile":
           setSelectedStorageFile(file);
           setFileInputStorageName(file.name);
+          break;
+        case "adsfile":
+          setSelectedAdsFile(file)
+          setFileInputAdsName(file.name)
           break;
         default:
           break;
@@ -76,8 +82,10 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
       setFileInputStorageName(null);
       return;
     }
-    if (type === "advertisement") {
-      return;
+    if (type === "ads") {
+      setSelectedAdsFile(null)
+      setFileInputAdsName(null)
+      return
     }
   }
 
@@ -116,20 +124,20 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
   }
 
   async function initFilesData() {
-    if (IS_TEST_MODEL) {
-      const orderData = await parseFile(await loadOrderByMock(),'order');
-      const storageData = await parseFile(await loadStorageByMock(),'storage');
-      // console.log(orderData);
-      // console.log(storageData);
+    // if (IS_TEST_MODEL) {
+    //   const orderData = await parseFile(await loadOrderByMock(),'order');
+    //   const storageData = await parseFile(await loadStorageByMock(),'storage');
+    //   // console.log(orderData);
+    //   // console.log(storageData);
 
-      callback({
-        status: "ok",
-        orderData,
-        storageData,
-      });
+    //   callback({
+    //     status: "ok",
+    //     orderData,
+    //     storageData,
+    //   });
 
-      return;
-    }
+    //   return;
+    // }
 
     if (!selectedOrderFile) {
       alert("请上传销售报表");
@@ -140,7 +148,12 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
       return;
     }
 
-    try {
+    if (!selectedAdsFile){
+      alert("请上传广告pdf");
+      return 
+    }
+    try{
+      const adsData = await getAdsFromCache(selectedAdsFile);
       const orderData = await parseFile(selectedOrderFile,'order');
       const storageData = await parseFile(selectedStorageFile,'storage');
       // console.log(orderData);
@@ -150,10 +163,11 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
         status: "ok",
         orderData,
         storageData,
+        adsData:adsData?.data as any
       });
     } catch (error) {
       if (error instanceof Error) {
-        alert(`文件解析出错:${error.message}`);
+        alert(`出错:${error.message}`);
         console.error(error);
 
         callback({
@@ -233,6 +247,41 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
                   rounded="full"
                   className=" absolute top-[-15px] right-[-15px]"
                   onClick={() => handleFileRemove("storage")}
+                >
+                  删除
+                </Button>
+              </>
+            )}
+          </div>
+
+          <div className="flex justify-start items-start bg-amber-50 relative py-2 px-5 rounded-md">
+            {!fileInputAdsName && (
+              <>
+                <input
+                  className=" opacity-0 absolute top-1 left-1 right-1 bottom-1 cursor-pointer"
+                  ref={fileInputAdsRef}
+                  accept=".pdf"
+                  type="file"
+                  name="adsfile"
+                  id="adsfile"
+                  onChange={handleFileChange}
+                />
+
+                <div>上传广告报表</div>
+              </>
+            )}
+            {fileInputAdsName && (
+              <>
+                <div className=" flex flex-col">
+                  <span>广告报表:</span>
+                  <span className=" break-all ">{fileInputAdsName}</span>
+                </div>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  rounded="full"
+                  className=" absolute top-[-15px] right-[-15px]"
+                  onClick={() => handleFileRemove("ads")}
                 >
                   删除
                 </Button>

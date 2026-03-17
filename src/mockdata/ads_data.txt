@@ -1,0 +1,75 @@
+{
+  "success": "true",
+  "data": {
+    "statement_summary_totals": {
+      "total_campaign_charges": 1638.52,
+      "total_adjustments": 0,
+      "total_regulatory_advertising_fees": 0.07,
+      "sub_total": 1638.59,
+      "total_amount_due": 1638.59
+    },
+    "single_country_campaign_details": {
+      "country_name": "United States",
+      "total_campaign_charges": 1638.52,
+      "campaign_details_table": [
+        {
+          "campaign_name": "T18自动广告活动 - 1/7/2025 23:33:53.934",
+          "campaign_type": "SPONSORED PRODUCT",
+          "campaign_id": "462894521674692",
+          "amount_ex_tax": 69,
+          "invoice_id": "39604212DPA25"
+        },
+        {
+          "campaign_name": "衣架-基础自动广告",
+          "campaign_type": "SPONSORED PRODUCT",
+          "campaign_id": "211012362948617",
+          "amount_ex_tax": 56.47,
+          "invoice_id": "39604212DPA25"
+        },
+        {
+          "campaign_name": "T18自动广告活动 - 1/7/2025 23:33:53.934",
+          "campaign_type": "SPONSORED PRODUCT",
+          "campaign_id": "462894521674692",
+          "amount_ex_tax": 267,
+          "invoice_id": "49767032DPA25"
+        },
+        {
+          "campaign_name": "衣架-基础自动广告",
+          "campaign_type": "SPONSORED PRODUCT",
+          "campaign_id": "211012362948617",
+          "amount_ex_tax": 239.47,
+          "invoice_id": "49767032DPA25"
+        },
+        {
+          "campaign_name": "T18自动广告活动 - 1/7/2025 23:33:53.934",
+          "campaign_type": "SPONSORED PRODUCT",
+          "campaign_id": "462894521674692",
+          "amount_ex_tax": 259.41,
+          "invoice_id": "58595742DPA25"
+        },
+        {
+          "campaign_name": "衣架-基础自动广告",
+          "campaign_type": "SPONSORED PRODUCT",
+          "campaign_id": "211012362948617",
+          "amount_ex_tax": 240.64,
+          "invoice_id": "58595742DPA25"
+        },
+        {
+          "campaign_name": "T18自动广告活动 - 1/7/2025 23:33:53.934",
+          "campaign_type": "SPONSORED PRODUCT",
+          "campaign_id": "462894521674692",
+          "amount_ex_tax": 250.29,
+          "invoice_id": "68711282DPA25"
+        },
+        {
+          "campaign_name": "衣架-基础自动广告",
+          "campaign_type": "SPONSORED PRODUCT",
+          "campaign_id": "211012362948617",
+          "amount_ex_tax": 256.24,
+          "invoice_id": "68711282DPA25"
+        }
+      ],
+      "campaign_charge_details_total": 1638.52
+    }
+  }
+}
