@@ -137,13 +137,15 @@ class ReportCalc {
 
   constructor({ orderData, storageData }: ReportCalcConstructorParams) {
     this.orderData = orderData
-      .map((o) => {
+      .map((o, idx) => {
         o.__status = "pending";
+        o.__key = idx + 1;
         return o;
       })
       .filter((o) => o.type !== "Transfer");
-    this.storageData = storageData.map((o) => {
+    this.storageData = storageData.map((o, idx) => {
       o.__status = "pending";
+      o.__key = idx + 1;
       return o;
     });
 
@@ -158,11 +160,12 @@ class ReportCalc {
   getReportList() {
     let that = this;
     let arr: Array<ReprotItem> = [];
-    that.skuList.map((sku) => {
+    that.skuList.map((sku, idx) => {
       let target = that.report[sku];
       arr.push({
         ...target,
         sku,
+        __key: idx + 1,
       } as ReprotItem);
     });
     return arr.sort((n1, n2) => {
@@ -526,7 +529,8 @@ class ReportCalc {
         }, Decimal(0))
         .toFixed(2);
 
-      that.report[key]["FBA_Transaction_fees"] = total;
+      let reportSku = that.report[key] as any;
+      reportSku["FBA_Transaction_fees"] = total;
     });
 
     list.map((o) => {
@@ -582,7 +586,8 @@ class ReportCalc {
         }, Decimal(0))
         .toFixed(2);
 
-      that.report[key]["Order_Retrocharge"] = total;
+      let reportSku = that.report[key] as any;
+      reportSku["Order_Retrocharge"] = total;
     });
 
     list.map((o) => {
@@ -809,7 +814,8 @@ class ReportCalc {
         );
       }
 
-      that.report[item.__sku]["StorageFee"] = totalStorageFee.toFixed(4);
+      let reportSku = that.report[item.__sku] as any;
+      reportSku["StorageFee"] = totalStorageFee.toFixed(2);
     }
 
     // 报表中的仓储费 设置状态
@@ -933,8 +939,19 @@ class ReportCalc {
         .plus(total_regulatory_advertising_fees)
         .negated()
         .toFixed(2);
+      // 放在第一品上，防止丢账
+      if (that.productList.length > 0) {
+        const reportSku = that.report[that.productList[0].__sku] as any;
+        reportSku["Cost_of_Advertising_other"] = otherFee;
 
-      console.warn(`未找到有广告费的产品，杂费未分配！  otherFee:${otherFee}`);
+        console.warn(
+          `未找到有广告费的产品，杂费暂时分配到${that.productList[0].__sku}条目中！  otherFee:${otherFee}`,
+        );
+      } else {
+        console.warn(
+          `未找到有广告费的产品，杂费未分配！  otherFee:${otherFee}`,
+        );
+      }
     }
   }
 }

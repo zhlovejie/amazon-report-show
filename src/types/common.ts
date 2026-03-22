@@ -308,7 +308,7 @@ const STORAGE_HEADER_KEYS_OBJECT = {
 export const CURRENCY_FORMATTER_OBJECT = {
   'order':['quantity','product sales','selling fees','fba fees','other transaction fees','other','total'],
   'storage':['estimated_monthly_storage_fee'],
-  'advertisement':[]
+  'ads':[]
 }
 
 
@@ -333,13 +333,15 @@ type StorageHeaderKeyType = ValueOfProperty<
 export type OrderHeaderKeyTypeObject = {
   [K in OrderHeaderKeyType]: string;
 }&{
-  __status:'pending' | 'done'
+  __status:'pending' | 'done';
+  __key:number | string;
 };
 
 export type StorageHeaderKeyTypeObject = {
   [K in StorageHeaderKeyType]: string;
 }&{
-  __status:'pending' | 'done'
+  __status:'pending' | 'done';
+  __key:number | string;
 };
 
 export type ReportCalcConstructorParams = {
@@ -357,6 +359,9 @@ export type ReprotItem = ReprotItemKnowKeys & {
     "__fnsku": string,
     "__asin": string,
     "__sku": string,
+    "__key":number | string;
+    "__editStatus"?:"edit" | "save" | "cancel";
+    "__status":'pending' | 'done';
     [key: string]: string | number | boolean | undefined  // 直接在这里添加索引签名
 };
 
