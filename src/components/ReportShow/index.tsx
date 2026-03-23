@@ -21,7 +21,7 @@ import { CopyButton } from "../CopyButton";
 import { useImmer } from "use-immer";
 import Decimal from "decimal.js";
 
-import {columnsSimpleList } from "@/utils/common"
+import { columnsSimpleList } from "@/utils/common";
 interface ReprotShowProps {
   data: Array<ReprotItem>;
   repairDataList: Array<ReprotItem>;
@@ -681,25 +681,30 @@ function ReprotShow({ data, className, repairDataList }: ReprotShowProps) {
       },
       fixed: "end",
     },
-  ].map(col => {
+  ].map((col) => {
     return {
       ...col,
-      key:col.dataIndex
-    }
+      key: col.dataIndex,
+    };
   });
 
-
   // 配置显示列功能-------------------------
-  const defaultCheckedList = columnsSimpleList.map((item) => item.dataIndex);
+  const defaultCheckedList = columnsSimpleList
+    .map((item) => item.dataIndex)
+    .filter((key) => {
+      // 默认自定义哪些列不显示
+      let defaultHiddenKeyList = ["__fnsku", "__asin", "sku"];
+      return !defaultHiddenKeyList.includes(key);
+    });
   const [checkedList, setCheckedList] = useState(defaultCheckedList);
   const checkboxOptions = columnsSimpleList.map(({ dataIndex, title }) => ({
     label: title,
     value: dataIndex,
   }));
 
-  console.log(`checkboxOptions---------------------------`)
-  console.log(JSON.stringify(checkboxOptions,null,'  '))
-  console.log(`checkboxOptions---------------------------`)
+  // console.log(`checkboxOptions---------------------------`);
+  // console.log(JSON.stringify(checkboxOptions, null, "  "));
+  // console.log(`checkboxOptions---------------------------`);
 
   const newColumns = columns.map((item) => ({
     ...item,
@@ -715,12 +720,12 @@ function ReprotShow({ data, className, repairDataList }: ReprotShowProps) {
           setCheckedList(value as string[]);
         }}
         style={{
-          display:'flex',
-          flexDirection:'column'
+          display: "flex",
+          flexDirection: "column",
         }}
       />
     </div>
-  )
+  );
 
   // 配置显示列功能-------------------------
 
@@ -981,7 +986,6 @@ function ReprotShow({ data, className, repairDataList }: ReprotShowProps) {
         <MetricCards data={metricCardData} callback={handleUsdCnyRateChange} />
       </div>
       <div className=" flex justify-between items-center mt-5">
-
         <Tooltip title="点击快速跳转到列" color="#108ee9" placement="top">
           <div className=" inline-flex items-center gap-2 ">
             <Button
@@ -1019,19 +1023,18 @@ function ReprotShow({ data, className, repairDataList }: ReprotShowProps) {
           </div>
         </Tooltip>
 
-        <Popover content={SettingColumnsNode} placement="left" title="配置显示列名" trigger="click">
-      
-            <Button
-                type="link"
-                size="small"
-                onClick={() => {}}
-              >
-                配置显示列名
-              </Button>
+        <Popover
+          content={SettingColumnsNode}
+          placement="left"
+          title="配置显示列名"
+          trigger="click"
+        >
+          <Button type="link" size="small" onClick={() => {}}>
+            配置显示列名
+          </Button>
         </Popover>
       </div>
 
-      
       <div className={cn("w-full overflow-auto mt-5", className)}>
         <Table
           scroll={{ x: "max-content" }}
