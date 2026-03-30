@@ -106,7 +106,7 @@ function PendingList({ data, skulist, className, callback }: PendingListProps) {
       key: "__action__",
       title: "操作",
       dataIndex: "__action__",
-      render: (_, record, idx) => {
+      render: (_, record) => {
         if (record.__status === "pending") {
           return (
             <Button

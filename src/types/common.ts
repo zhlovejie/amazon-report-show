@@ -442,3 +442,10 @@ export interface ResultAdvertisingBillData {
   "message"?:string,
   "raw_text"?:string
 }
+
+
+export interface CategoryTableRow {
+  name: string;
+  gross_profit_rmb: string;
+  gross_profit_doller: string;
+}

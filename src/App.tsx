@@ -10,6 +10,8 @@ function App() {
   const [reportList,setReportList] = useState<Array<ReprotItem>>([])
   const [pendingList,setPendingList] = useState<Array<ReprotItem>>([])
   const [pendingRepairList,setPendingRepairList] = useState<Array<ReprotItem>>([])
+  // 原始数据计算总回款
+  const [totalPaymentCollection,setTotalPaymentCollection] = useState<string>("0")
 
   const skuList = useMemo(() => {
     return reportList.map(item => item.__sku)
@@ -41,6 +43,7 @@ function App() {
 
         setReportList(ReportCalcInstance.getReportList())
         setPendingList(ReportCalcInstance.getPendingList())
+        setTotalPaymentCollection(ReportCalcInstance.getTotalPaymentCollection())
       }
 
     }
@@ -54,7 +57,7 @@ function App() {
     <>
       <div className=" max-w-[80%] bg-white mx-auto my-5">
         <LoadFileCsv callback={csvDataCallback} />
-        <ReprotShow data={reportList} repairDataList={pendingRepairList} className=" mt-5" />
+        <ReprotShow data={reportList} repairDataList={pendingRepairList} totalPaymentCollection={totalPaymentCollection} className=" mt-5" />
         <PendingList data={pendingList} skulist={skuList} callback={handlePendingRepairList} className=" mt-5"/>
         {/* <BatchEditTable /> */}
       </div>

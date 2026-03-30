@@ -120,23 +120,23 @@ export const columnsSimpleList = [
     dataIndex: "qty",
   },
   {
-    title: "销售额($)",
+    title: "销售额",
     dataIndex: "productSales",
   },
   {
-    title: "佣金($)",
+    title: "佣金",
     dataIndex: "sellingFees",
   },
   {
-    title: "FBA配送费($)",
+    title: "FBA配送费",
     dataIndex: "fbaFees",
   },
   {
-    title: "其他($)",
+    title: "其他",
     dataIndex: "others",
   },
   {
-    title: "退款($)",
+    title: "退款",
     dataIndex: "refund",
   },
   {
@@ -153,60 +153,59 @@ export const columnsSimpleList = [
   },
   {
     dataIndex: "Cost_of_Advertising",
-    title: "基础广告费($)",
+    title: "基础广告费",
   },
   {
     dataIndex: "Cost_of_Advertising_other",
-    title: "基础广告费其它($)",
+    title: "基础广告费其它",
   },
   {
     dataIndex: "Deal",
-    title: "秒杀费($)",
+    title: "秒杀费",
   },
   {
     dataIndex: "Vine_Enrollment_Fee",
-    title: "Vine($)",
+    title: "Vine",
   },
   {
     dataIndex: "Coupon_Performance_Based_Fee",
-    title: "(新)优惠券绩效费($)",
+    title: "(新)优惠券绩效费",
   },
   {
     dataIndex: "Coupon_Participation_Fee",
-    title: "(新)优惠券参与费($)",
+    title: "(新)优惠券参与费",
   },
   {
     dataIndex: "Coupon_Redemption_Fee",
-    title: "(旧)优惠券($)",
+    title: "(旧)优惠券",
   },
   {
     dataIndex: "StorageFee",
-    title: "存储费($)",
+    title: "仓储费",
   },
-
   {
     dataIndex: "Disposal_Fee",
-    title: "FBA移除订单：弃置费($)",
+    title: "FBA移除订单：弃置费",
   },
 
   {
     dataIndex: "FBA_Transaction_fees",
-    title: "FBA交易费用($)",
+    title: "FBA交易费用",
   },
 
   {
     dataIndex: "Liquidations",
-    title: "清货($)",
+    title: "清货",
   },
 
   {
     dataIndex: "Order_Retrocharge",
-    title: "订单退款撤销($)",
+    title: "订单退款撤销",
   },
 
   {
     dataIndex: "FBA_Inbound_Placement_Service_Fee",
-    title: "入库配置费($)",
+    title: "入库配置费",
   },
   {
     title: "回款($)",
@@ -236,7 +235,10 @@ export const columnsSimpleList = [
     title: "单个成本(RMB)",
     dataIndex: "extra_single_cost_price",
   },
-
+  {
+    title: "单个成本($)",
+    dataIndex: "extra_single_doller_cost_price"
+  },
   {
     title: "成本(RMB)",
     dataIndex: "extra_rmb_cost",
@@ -246,7 +248,7 @@ export const columnsSimpleList = [
     dataIndex: "extra_doller_cost",
   },
   {
-    title: "毛利润",
+    title: "毛利润($)",
     dataIndex: "extra_gross_profit",
   },
   {

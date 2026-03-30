@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, message } from "antd";
+import { message } from "antd";
 import { copyToClipboard } from "@/utils/common";
 import { CopyOutlined } from "@ant-design/icons";
 import { cn } from "@/utils/classnames";
@@ -11,7 +11,7 @@ export function CopyButton({
   text: string;
   className?: string;
 }) {
-  const [copied, setCopied] = useState(false);
+  const [, setCopied] = useState(false);
 
   const handleCopy = async () => {
     const success = await copyToClipboard(text);

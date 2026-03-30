@@ -9,6 +9,7 @@ import type {
   AdvertisingBillData,
 } from "@/types/common";
 
+
 /**
  * 一月 - January (Jan)
 二月 - February (Feb)
@@ -41,6 +42,14 @@ class ReportCalc {
         "black on over the door hanger",
         "over the door hanger",
       ],
+
+      //设置默认值 进价、重量、国内物流、海运报价、海运费
+      __default_extra_purchase_price:"14.8",//进价
+      __default_extra_weight:"840",//重量
+      __default_extra_inside_express_price:"1",//国内物流
+      __default_extra_shipping_price:"7",//海运报价
+      //分类
+      __category:"门后"
     },
     {
       __no: 2,
@@ -50,6 +59,13 @@ class ReportCalc {
       __sku: "hook02",
       __ads: [],
       __coupon: ["2 Pack Door Hanger", "2 pack door hanger"],
+
+      __default_extra_purchase_price:"29.4",//进价
+      __default_extra_weight:"970",//重量
+      __default_extra_inside_express_price:"1.5",//国内物流
+      __default_extra_shipping_price:"7",//海运报价
+
+      __category:"门后"
     },
     {
       __no: 3,
@@ -59,6 +75,13 @@ class ReportCalc {
       __sku: "hook01-white",
       __ads: [],
       __coupon: ["White Over the Door Hanger", "over the door towel rack"],
+
+      __default_extra_purchase_price:"14.8",//进价
+      __default_extra_weight:"840",//重量
+      __default_extra_inside_express_price:"1",//国内物流
+      __default_extra_shipping_price:"7",//海运报价
+
+      __category:"门后"
     },
     {
       __no: 4,
@@ -72,6 +95,13 @@ class ReportCalc {
         "Tie Rack Hanger for Closet",
         "Tie Hangers for Men",
       ],
+
+      __default_extra_purchase_price:"7",//进价
+      __default_extra_weight:"170",//重量
+      __default_extra_inside_express_price:"0.3",//国内物流
+      __default_extra_shipping_price:"7",//海运报价
+
+      __category:"T18"
     },
     {
       __no: 5,
@@ -81,6 +111,13 @@ class ReportCalc {
       __sku: "T-tie-black01",
       __ads: ["T18-手动精准-推Tie Hanger"],
       __coupon: ["tie organizer for men"],
+
+      __default_extra_purchase_price:"7",//进价
+      __default_extra_weight:"170",//重量
+      __default_extra_inside_express_price:"0.3",//国内物流
+      __default_extra_shipping_price:"7",//海运报价
+
+      __category:"T18"
     },
     {
       __no: 6,
@@ -90,6 +127,13 @@ class ReportCalc {
       __sku: "T-tie-red002",
       __ads: [],
       __coupon: [],
+
+      __default_extra_purchase_price:"14",//进价
+      __default_extra_weight:"340",//重量
+      __default_extra_inside_express_price:"0.3",//国内物流
+      __default_extra_shipping_price:"7",//海运报价
+
+      __category:"T18"
     },
     {
       __no: 7,
@@ -102,6 +146,13 @@ class ReportCalc {
         "墙挂14钩-手动-tie wall closet",
       ],
       __coupon: [],
+
+      __default_extra_purchase_price:"14.5",//进价
+      __default_extra_weight:"370",//重量
+      __default_extra_inside_express_price:"0.3",//国内物流
+      __default_extra_shipping_price:"7",//海运报价
+
+      __category:"墙14"
     },
     {
       __no: 8,
@@ -111,6 +162,13 @@ class ReportCalc {
       __sku: "tie-wall-02white",
       __ads: ["2Pack Wall Mounted Tie Rack White"],
       __coupon: [],
+
+      __default_extra_purchase_price:"14.5",//进价
+      __default_extra_weight:"370",//重量
+      __default_extra_inside_express_price:"0.3",//国内物流
+      __default_extra_shipping_price:"7",//海运报价
+
+      __category:"墙14"
     },
   ];
 
@@ -182,6 +240,16 @@ class ReportCalc {
       ) as unknown as Array<ReprotItem>;
   }
 
+  // 计算总回款  除去type = Transfer 之外的 total的汇总
+  getTotalPaymentCollection(){
+    let that = this;
+    let list = that.orderData.filter(item => item.type.trim().toLowerCase() !== 'transfer')
+    
+    let total = list.reduce((arr,cur) => {
+      return arr.add(cur.total)
+    },Decimal(0))
+    return total.toFixed(2)
+  }
   /**
    * 记录报表中的 sku，type 防止计算遗漏
    */
@@ -262,7 +330,7 @@ class ReportCalc {
     let that = this;
     let orderTypeList = that.orderData.filter(
       (item) =>
-        item.sku === sku && item.type.toLocaleLowerCase().trim() === "order",
+        item.sku === sku && item.type.toLowerCase().trim() === "order",
     );
 
     //  销量
@@ -345,7 +413,7 @@ class ReportCalc {
     let that = this;
     let refundTypeList = that.orderData.filter(
       (item) =>
-        item.sku === sku && item.type.toLocaleLowerCase().trim() === "refund",
+        item.sku === sku && item.type.toLowerCase().trim() === "refund",
     );
 
     //  退款金额
@@ -398,7 +466,7 @@ class ReportCalc {
     let adjustmentTypeList = that.orderData.filter(
       (item) =>
         item.sku === sku &&
-        item.type.toLocaleLowerCase().trim() === "adjustment",
+        item.type.toLowerCase().trim() === "adjustment",
     );
 
     const reportItem = that.report[sku] as ReprotItem;
@@ -637,8 +705,8 @@ class ReportCalc {
       const total = couponRedemptionFeeList
         .filter((item) =>
           p.__coupon.some((c) => {
-            let s1 = String(c).trim().toLocaleLowerCase();
-            let s2 = String(item.description).trim().toLocaleLowerCase();
+            let s1 = String(c).trim().toLowerCase();
+            let s2 = String(item.description).trim().toLowerCase();
             return s1.includes(s2) || s2.includes(s1);
           }),
         )
@@ -840,20 +908,42 @@ class ReportCalc {
   initAdditionalAttributes(sku: string) {
     const that = this;
     let reportSku = that.report[sku] as any;
+
+    let targetSku = that.productList.find(item => item.__sku === sku)
+
     // 回款
     reportSku["extra_payment_collection"] = Decimal(0).toFixed(2);
-    // 进价
-    reportSku["extra_purchase_price"] = Decimal(0).toFixed(2);
-    // 重量
-    reportSku["extra_weight"] = Decimal(0).toFixed(2);
-    // 国内物流
-    reportSku["extra_inside_express_price"] = Decimal(0).toFixed(2);
-    // 海运报价
-    reportSku["extra_shipping_price"] = Decimal(7).toFixed(2);
+
+    // 商品分类，方便后续统计
+    reportSku["__category"] = targetSku?.__category || 'none'
+
+    if(targetSku){
+      // 进价
+      reportSku["extra_purchase_price"] = Decimal(targetSku.__default_extra_purchase_price).toFixed(2);
+      // 重量
+      reportSku["extra_weight"] = Decimal(targetSku.__default_extra_weight).toFixed(2);
+      // 国内物流
+      reportSku["extra_inside_express_price"] = Decimal(targetSku.__default_extra_inside_express_price).toFixed(2);
+      // 海运报价
+      reportSku["extra_shipping_price"] = Decimal(targetSku.__default_extra_shipping_price).toFixed(2);
+    }else{
+      // 进价
+      reportSku["extra_purchase_price"] = Decimal(0).toFixed(2);
+      // 重量
+      reportSku["extra_weight"] = Decimal(0).toFixed(2);
+      // 国内物流
+      reportSku["extra_inside_express_price"] = Decimal(0).toFixed(2);
+      // 海运报价
+      reportSku["extra_shipping_price"] = Decimal(7).toFixed(2);
+    }
     // 海运费
     reportSku["extra_shipping_fee"] = Decimal(0).toFixed(2);
+
+
     // 单个成本
     reportSku["extra_single_cost_price"] = Decimal(0).toFixed(2);
+    // 单个成本($)
+    reportSku["extra_single_doller_cost_price"] = Decimal(0).toFixed(2);
     // 成本(RMB)
     reportSku["extra_rmb_cost"] = Decimal(0).toFixed(2);
     // 成本($)
@@ -885,8 +975,8 @@ class ReportCalc {
           single_country_campaign_details.campaign_details_table.filter(
             (item) => {
               return p.__ads.some((v) => {
-                let s1 = String(v).trim().toLocaleLowerCase();
-                let s2 = String(item.campaign_name).trim().toLocaleLowerCase();
+                let s1 = String(v).trim().toLowerCase();
+                let s2 = String(item.campaign_name).trim().toLowerCase();
                 return s1.includes(s2) || s2.includes(s1);
               });
             },

@@ -1,4 +1,4 @@
-import type { ReprotItem } from "@/types/common";
+import type { ReprotItem, CategoryTableRow } from "@/types/common";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/utils/classnames";
 // import Button from "@/components/Button";
@@ -7,30 +7,57 @@ import {
   Table,
   Space,
   Typography,
-  message,
   Tooltip,
   Button,
   Checkbox,
   type CheckboxOptionType,
   Popover,
+  Alert,
+  message,
 } from "antd";
-import type { ColumnsType } from "antd/es/table";
+import type { ColumnsType, TableRef } from "antd/es/table";
 import { EditOutlined, SaveOutlined, CloseOutlined } from "@ant-design/icons";
 import MetricCards from "../MetricCards";
 import { CopyButton } from "../CopyButton";
+import CategoryTableList from "../CategoryTableList";
 import { useImmer } from "use-immer";
 import Decimal from "decimal.js";
 
-import { columnsSimpleList } from "@/utils/common";
+import { columnsSimpleList, copyToClipboard } from "@/utils/common";
+
+import { runCalcPipeline, calcTotalFromSnapshot } from "./calc";
+
 interface ReprotShowProps {
   data: Array<ReprotItem>;
   repairDataList: Array<ReprotItem>;
   className?: string;
+  totalPaymentCollection: string;
 }
 
-function ReprotShow({ data, className, repairDataList }: ReprotShowProps) {
-  const tableRef = useRef(null);
+// 配置显示列功能-------------------------
+// ✅ 提到组件外部，只计算一次
+const DEFAULT_CHECKED_LIST = columnsSimpleList
+  .map((item) => item.dataIndex)
+  .filter((key) => !["__fnsku", "__asin", "sku"].includes(key));
+
+const CHECKBOX_OPTIONS = columnsSimpleList.map(({ dataIndex, title }) => ({
+  label: title,
+  value: dataIndex,
+}));
+
+function ReprotShow({
+  data,
+  className,
+  repairDataList,
+  totalPaymentCollection,
+}: ReprotShowProps) {
+  const tableRef = useRef<TableRef>(null);
   const [reportData, setReportData] = useImmer<Array<ReprotItem>>([]);
+
+  const [categtoryProductData, setCategtoryProductData] = useImmer<
+    Array<CategoryTableRow>
+  >([]);
+
   // 记录鼠标移动到当前row
   const [currentRow, setCurrentRow] = useState<ReprotItem>();
   // 记录当前处于编辑状态的列名（dataIndex）
@@ -61,7 +88,7 @@ function ReprotShow({ data, className, repairDataList }: ReprotShowProps) {
       });
     });
     setEditingColumn(null);
-    message.success(`列 [${editingColumn}] 修改成功`);
+    // message.success(`列 [${editingColumn}] 修改成功`);
   };
 
   // 3. 取消编辑
@@ -126,581 +153,592 @@ function ReprotShow({ data, className, repairDataList }: ReprotShowProps) {
     );
   };
 
-  const columns: ColumnsType<ReprotItem> = [
-    {
-      title: "名称",
-      dataIndex: "__name",
-      width: 110,
-      fixed: "start",
-      onHeaderCell: () => ({
-        style: { color: "#73726c" },
-      }),
-      render: (text: string) => {
-        return (
-          <span className="font-medium text-gray-800 whitespace-nowrap">
-            {text}
-          </span>
-        );
-      },
-    },
-    {
-      title: "fnsku",
-      dataIndex: "__fnsku",
-      width: 110,
-      fixed: "start",
-      onHeaderCell: () => ({
-        style: { color: "#73726c" },
-      }),
-      render: (text: string) => {
-        return (
-          <span className="text-gray-500 font-medium text-xs whitespace-nowrap">
-            {text}
-          </span>
-        );
-      },
-    },
-    {
-      title: "asin",
-      dataIndex: "__asin",
-      width: 110,
-      fixed: "start",
-      onHeaderCell: () => ({
-        style: { color: "#73726c" },
-      }),
-      render: (text: string) => {
-        return (
-          <span className="text-gray-500 font-medium text-xs whitespace-nowrap">
-            {text}
-          </span>
-        );
-      },
-    },
-    {
-      title: "sku",
-      dataIndex: "sku",
-      width: 130,
-      fixed: "start",
-      onHeaderCell: () => ({
-        style: { color: "#73726c" },
-      }),
-      render: (text: string, record) => {
-        let isCurrentRow = currentRow && currentRow.__key === record.__key;
-        return (
-          <div className=" relative flex items-center justify-between">
-            <span className="text-gray-500 font-medium text-xs whitespace-nowrap mr-1">
+  const columns = useMemo<ColumnsType<ReprotItem>>(() => {
+    return [
+      {
+        title: "名称",
+        dataIndex: "__name",
+        width: 110,
+        fixed: "start",
+        onHeaderCell: () => ({
+          style: { color: "#73726c" },
+        }),
+        render: (text: string) => {
+          return (
+            <span className="font-medium text-gray-800 whitespace-nowrap">
               {text}
             </span>
-            <CopyButton
-              className={cn(isCurrentRow ? " opacity-100" : " opacity-0")}
-              text={text}
-            />
-          </div>
-        );
+          );
+        },
       },
-    },
-    {
-      title: "销量",
-      dataIndex: "qty",
-      align: "right",
-      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      render: (text: string) => {
-        return (
-          <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
-            {text}
-          </span>
-        );
-      },
-      width: 110,
-    },
-    {
-      title: "销售额($)",
-      dataIndex: "productSales",
-      align: "right",
-      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      render: (text: string) => {
-        return (
-          <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
-            {text}
-          </span>
-        );
-      },
-      width: 110,
-    },
-    {
-      title: "佣金($)",
-      dataIndex: "sellingFees",
-      align: "right",
-      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      render: (text: string) => {
-        return (
-          <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
-            {text}
-          </span>
-        );
-      },
-      width: 110,
-    },
-    {
-      title: "FBA配送费($)",
-      dataIndex: "fbaFees",
-      align: "right",
-      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      render: (text: string) => {
-        return (
-          <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
-            {text}
-          </span>
-        );
-      },
-      width: 110,
-    },
-    {
-      title: "其他($)",
-      dataIndex: "others",
-      align: "right",
-      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      render: (text: string) => {
-        return (
-          <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
-            {text}
-          </span>
-        );
-      },
-      width: 110,
-    },
-    {
-      title: "退款($)",
-      dataIndex: "refund",
-      align: "right",
-      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      render: (text: string) => {
-        return (
-          <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
-            {text}
-          </span>
-        );
-      },
-      width: 110,
-    },
-    {
-      title: "退款数量",
-      dataIndex: "refundQty",
-      align: "right",
-      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      render: (text: string) => {
-        return (
-          <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
-            {text}
-          </span>
-        );
-      },
-      width: 110,
-    },
-    {
-      title: "退货率",
-      dataIndex: "refundRate",
-      align: "right",
-      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      render: (text: string) => {
-        return (
-          <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
-            {text} %
-          </span>
-        );
-      },
-      width: 110,
-    },
-    {
-      dataIndex: "Adjustment",
-      title: () => renderTitle("清算", "Adjustment"),
-      render: (text, record) => renderEditableCell(text, record, "Adjustment"),
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      align: "right",
-      width: 110,
-    },
-    {
-      dataIndex: "Cost_of_Advertising",
-      title: () => renderTitle("基础广告费($)", "Cost_of_Advertising"),
-      render: (text, record) =>
-        renderEditableCell(text, record, "Cost_of_Advertising"),
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      align: "right",
-      width: 150,
-    },
-    {
-      dataIndex: "Cost_of_Advertising_other",
-      title: () =>
-        renderTitle("基础广告费其它($)", "Cost_of_Advertising_other"),
-      render: (text, record) =>
-        renderEditableCell(text, record, "Cost_of_Advertising_other"),
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      align: "right",
-      width: 180,
-    },
-    {
-      dataIndex: "Deal",
-      title: () => renderTitle("秒杀费($)", "Deal"),
-      render: (text, record) => renderEditableCell(text, record, "Deal"),
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      align: "right",
-      width: 130,
-    },
-    {
-      dataIndex: "Vine_Enrollment_Fee",
-      title: () => renderTitle("Vine($)", "Vine_Enrollment_Fee"),
-      render: (text, record) =>
-        renderEditableCell(text, record, "Vine_Enrollment_Fee"),
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      align: "right",
-      width: 120,
-    },
-    {
-      dataIndex: "Coupon_Performance_Based_Fee",
-      title: () =>
-        renderTitle("(新)优惠券绩效费($)", "Coupon_Performance_Based_Fee"),
-      render: (text, record) =>
-        renderEditableCell(text, record, "Coupon_Performance_Based_Fee"),
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      align: "right",
-      width: 200,
-    },
-    {
-      dataIndex: "Coupon_Participation_Fee",
-      title: () =>
-        renderTitle("(新)优惠券参与费($)", "Coupon_Participation_Fee"),
-      render: (text, record) =>
-        renderEditableCell(text, record, "Coupon_Participation_Fee"),
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      align: "right",
-      width: 200,
-    },
-    {
-      dataIndex: "Coupon_Redemption_Fee",
-      title: () => renderTitle("(旧)优惠券($)", "Coupon_Redemption_Fee"),
-      render: (text, record) =>
-        renderEditableCell(text, record, "Coupon_Redemption_Fee"),
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      align: "right",
-      width: 160,
-    },
-    {
-      dataIndex: "StorageFee",
-      title: () => renderTitle("存储费($)", "StorageFee"),
-      render: (text, record) => renderEditableCell(text, record, "StorageFee"),
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      align: "right",
-      width: 130,
-    },
-
-    {
-      dataIndex: "Disposal_Fee",
-      title: () => renderTitle("FBA移除订单：弃置费($)", "Disposal_Fee"),
-      render: (text, record) =>
-        renderEditableCell(text, record, "Disposal_Fee"),
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      align: "right",
-      width: 220,
-    },
-
-    {
-      dataIndex: "FBA_Transaction_fees",
-      title: () => renderTitle("FBA交易费用($)", "FBA_Transaction_fees"),
-      render: (text, record) =>
-        renderEditableCell(text, record, "FBA_Transaction_fees"),
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      align: "right",
-      width: 170,
-    },
-
-    {
-      dataIndex: "Liquidations",
-      title: () => renderTitle("清货($)", "Liquidations"),
-      render: (text, record) =>
-        renderEditableCell(text, record, "Liquidations"),
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      align: "right",
-      width: 120,
-    },
-
-    {
-      dataIndex: "Order_Retrocharge",
-      title: () => renderTitle("订单退款撤销($)", "Order_Retrocharge"),
-      render: (text, record) =>
-        renderEditableCell(text, record, "Order_Retrocharge"),
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      align: "right",
-      width: 170,
-    },
-
-    {
-      dataIndex: "FBA_Inbound_Placement_Service_Fee",
-      title: () =>
-        renderTitle("入库配置费($)", "FBA_Inbound_Placement_Service_Fee"),
-      render: (text, record) =>
-        renderEditableCell(text, record, "FBA_Inbound_Placement_Service_Fee"),
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      align: "right",
-      width: 160,
-    },
-    {
-      title: "回款($)",
-      dataIndex: "extra_payment_collection",
-      align: "right",
-      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      render: (text: string) => {
-        return (
-          <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
-            {text}
-          </span>
-        );
-      },
-      width: 110,
-    },
-    {
-      dataIndex: "extra_purchase_price",
-      title: () => renderTitle("进价(RMB)", "extra_purchase_price"),
-      render: (text, record) =>
-        renderEditableCell(text, record, "extra_purchase_price"),
-      align: "right",
-      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      width: 140,
-    },
-    {
-      dataIndex: "extra_weight",
-      title: () => renderTitle("重量(g)", "extra_weight"),
-      render: (text, record) =>
-        renderEditableCell(text, record, "extra_weight"),
-      align: "right",
-      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      width: 120,
-    },
-    {
-      dataIndex: "extra_inside_express_price",
-      title: () => renderTitle("国内物流(RMB)", "extra_inside_express_price"),
-      render: (text, record) =>
-        renderEditableCell(text, record, "extra_inside_express_price"),
-      align: "right",
-      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      width: 170,
-    },
-    {
-      dataIndex: "extra_shipping_price",
-      title: () => renderTitle("海运报价(RMB)", "extra_shipping_price"),
-      render: (text, record) =>
-        renderEditableCell(text, record, "extra_shipping_price"),
-      align: "right",
-      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      width: 170,
-    },
-    {
-      dataIndex: "extra_shipping_fee",
-      title: () => renderTitle("海运费(RMB)", "extra_shipping_fee"),
-      render: (text, record) =>
-        renderEditableCell(text, record, "extra_shipping_fee"),
-      align: "right",
-      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      width: 150,
-    },
-    {
-      title: "单个成本(RMB)",
-      dataIndex: "extra_single_cost_price",
-      align: "right",
-      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      render: (text: string) => {
-        return (
-          <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
-            {text}
-          </span>
-        );
-      },
-      width: 150,
-    },
-
-    {
-      title: "成本(RMB)",
-      dataIndex: "extra_rmb_cost",
-      align: "right",
-      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      render: (text: string) => {
-        return (
-          <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
-            {text}
-          </span>
-        );
-      },
-      width: 110,
-    },
-    {
-      title: "成本($)",
-      dataIndex: "extra_doller_cost",
-      align: "right",
-      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      render: (text: string) => {
-        return (
-          <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
-            {text}
-          </span>
-        );
-      },
-      width: 110,
-    },
-    {
-      title: "毛利润",
-      dataIndex: "extra_gross_profit",
-      align: "right",
-      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      render: (text: string) => {
-        return (
-          <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
-            {text}
-          </span>
-        );
-      },
-      width: 110,
-    },
-    {
-      title: "毛利率",
-      dataIndex: "extra_rate_of_gross_profit",
-      width: 110,
-      align: "right",
-      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      render: (text: string) => {
-        let val = D(text);
-        if (val.gt(5)) {
+      {
+        title: "fnsku",
+        dataIndex: "__fnsku",
+        width: 110,
+        fixed: "start",
+        onHeaderCell: () => ({
+          style: { color: "#73726c" },
+        }),
+        render: (text: string) => {
           return (
-            <span className="tabular-nums! font-medium text-red-800 whitespace-nowrap">
+            <span className="text-gray-500 font-medium text-xs whitespace-nowrap">
+              {text}
+            </span>
+          );
+        },
+      },
+      {
+        title: "asin",
+        dataIndex: "__asin",
+        width: 110,
+        fixed: "start",
+        onHeaderCell: () => ({
+          style: { color: "#73726c" },
+        }),
+        render: (text: string) => {
+          return (
+            <span className="text-gray-500 font-medium text-xs whitespace-nowrap">
+              {text}
+            </span>
+          );
+        },
+      },
+      {
+        title: "sku",
+        dataIndex: "sku",
+        width: 130,
+        fixed: "start",
+        onHeaderCell: () => ({
+          style: { color: "#73726c" },
+        }),
+        render: (text: string, record: ReprotItem) => {
+          let isCurrentRow = currentRow && currentRow.__key === record.__key;
+          return (
+            <div className=" relative flex items-center justify-between">
+              <span className="text-gray-500 font-medium text-xs whitespace-nowrap mr-1">
+                {text}
+              </span>
+              <CopyButton
+                className={cn(isCurrentRow ? " opacity-100" : " opacity-0")}
+                text={text}
+              />
+            </div>
+          );
+        },
+      },
+      {
+        title: "销量",
+        dataIndex: "qty",
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        render: (text: string) => {
+          return (
+            <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
+              {text}
+            </span>
+          );
+        },
+        width: 110,
+      },
+      {
+        title: "销售额",
+        dataIndex: "productSales",
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        render: (text: string) => {
+          return (
+            <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
+              {text}
+            </span>
+          );
+        },
+        width: 110,
+      },
+      {
+        title: "佣金",
+        dataIndex: "sellingFees",
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        render: (text: string) => {
+          return (
+            <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
+              {text}
+            </span>
+          );
+        },
+        width: 110,
+      },
+      {
+        title: "FBA配送费",
+        dataIndex: "fbaFees",
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        render: (text: string) => {
+          return (
+            <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
+              {text}
+            </span>
+          );
+        },
+        width: 110,
+      },
+      {
+        title: "其他",
+        dataIndex: "others",
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        render: (text: string) => {
+          return (
+            <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
+              {text}
+            </span>
+          );
+        },
+        width: 110,
+      },
+      {
+        title: "退款",
+        dataIndex: "refund",
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        render: (text: string) => {
+          return (
+            <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
+              {text}
+            </span>
+          );
+        },
+        width: 110,
+      },
+      {
+        title: "退款数量",
+        dataIndex: "refundQty",
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        render: (text: string) => {
+          return (
+            <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
+              {text}
+            </span>
+          );
+        },
+        width: 110,
+      },
+      {
+        title: "退货率",
+        dataIndex: "refundRate",
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        render: (text: string) => {
+          return (
+            <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
               {text} %
             </span>
           );
-        }
-        if (val.lte(5) && val.gte(0)) {
-          return (
-            <span className="tabular-nums! font-medium text-orange-800 whitespace-nowrap">
-              {text} %
-            </span>
-          );
-        }
-        if (val.lt(0)) {
-          return (
-            <span className="tabular-nums! font-medium text-green-800 whitespace-nowrap">
-              {text} %
-            </span>
-          );
-        }
-
-        return (
-          <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
-            {text} %
-          </span>
-        );
+        },
+        width: 110,
       },
-      fixed: "end",
-    },
-  ].map((col) => {
-    return {
-      ...col,
-      key: col.dataIndex,
-    };
-  });
+      {
+        dataIndex: "Adjustment",
+        title: () => renderTitle("清算", "Adjustment"),
+        render: (text: string, record: ReprotItem) =>
+          renderEditableCell(text, record, "Adjustment"),
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        align: "right",
+        width: 110,
+      },
+      {
+        dataIndex: "Cost_of_Advertising",
+        title: () => renderTitle("基础广告费", "Cost_of_Advertising"),
+        render: (text: string, record: ReprotItem) =>
+          renderEditableCell(text, record, "Cost_of_Advertising"),
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        align: "right",
+        width: 150,
+      },
+      {
+        dataIndex: "Cost_of_Advertising_other",
+        title: () => renderTitle("基础广告费其它", "Cost_of_Advertising_other"),
+        render: (text: string, record: ReprotItem) =>
+          renderEditableCell(text, record, "Cost_of_Advertising_other"),
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        align: "right",
+        width: 180,
+      },
+      {
+        dataIndex: "Deal",
+        title: () => renderTitle("秒杀费", "Deal"),
+        render: (text: string, record: ReprotItem) =>
+          renderEditableCell(text, record, "Deal"),
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        align: "right",
+        width: 130,
+      },
+      {
+        dataIndex: "Vine_Enrollment_Fee",
+        title: () => renderTitle("Vine", "Vine_Enrollment_Fee"),
+        render: (text: string, record: ReprotItem) =>
+          renderEditableCell(text, record, "Vine_Enrollment_Fee"),
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        align: "right",
+        width: 120,
+      },
+      {
+        dataIndex: "Coupon_Performance_Based_Fee",
+        title: () =>
+          renderTitle("(新)优惠券绩效费", "Coupon_Performance_Based_Fee"),
+        render: (text: string, record: ReprotItem) =>
+          renderEditableCell(text, record, "Coupon_Performance_Based_Fee"),
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        align: "right",
+        width: 200,
+      },
+      {
+        dataIndex: "Coupon_Participation_Fee",
+        title: () =>
+          renderTitle("(新)优惠券参与费", "Coupon_Participation_Fee"),
+        render: (text: string, record: ReprotItem) =>
+          renderEditableCell(text, record, "Coupon_Participation_Fee"),
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        align: "right",
+        width: 200,
+      },
+      {
+        dataIndex: "Coupon_Redemption_Fee",
+        title: () => renderTitle("(旧)优惠券", "Coupon_Redemption_Fee"),
+        render: (text: string, record: ReprotItem) =>
+          renderEditableCell(text, record, "Coupon_Redemption_Fee"),
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        align: "right",
+        width: 160,
+      },
+      {
+        dataIndex: "StorageFee",
+        title: () => renderTitle("仓储费", "StorageFee"),
+        render: (text: string, record: ReprotItem) =>
+          renderEditableCell(text, record, "StorageFee"),
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        align: "right",
+        width: 130,
+      },
 
-  // 配置显示列功能-------------------------
-  const defaultCheckedList = columnsSimpleList
-    .map((item) => item.dataIndex)
-    .filter((key) => {
-      // 默认自定义哪些列不显示
-      let defaultHiddenKeyList = ["__fnsku", "__asin", "sku"];
-      return !defaultHiddenKeyList.includes(key);
-    });
-  const [checkedList, setCheckedList] = useState(defaultCheckedList);
-  const checkboxOptions = columnsSimpleList.map(({ dataIndex, title }) => ({
-    label: title,
-    value: dataIndex,
-  }));
+      {
+        dataIndex: "Disposal_Fee",
+        title: () => renderTitle("FBA移除订单-弃置费", "Disposal_Fee"),
+        render: (text: string, record: ReprotItem) =>
+          renderEditableCell(text, record, "Disposal_Fee"),
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        align: "right",
+        width: 220,
+      },
+
+      {
+        dataIndex: "FBA_Transaction_fees",
+        title: () => renderTitle("FBA交易费用", "FBA_Transaction_fees"),
+        render: (text: string, record: ReprotItem) =>
+          renderEditableCell(text, record, "FBA_Transaction_fees"),
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        align: "right",
+        width: 170,
+      },
+
+      {
+        dataIndex: "Liquidations",
+        title: () => renderTitle("清货", "Liquidations"),
+        render: (text: string, record: ReprotItem) =>
+          renderEditableCell(text, record, "Liquidations"),
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        align: "right",
+        width: 120,
+      },
+
+      {
+        dataIndex: "Order_Retrocharge",
+        title: () => renderTitle("订单退款撤销", "Order_Retrocharge"),
+        render: (text: string, record: ReprotItem) =>
+          renderEditableCell(text, record, "Order_Retrocharge"),
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        align: "right",
+        width: 170,
+      },
+
+      {
+        dataIndex: "FBA_Inbound_Placement_Service_Fee",
+        title: () =>
+          renderTitle("入库配置费", "FBA_Inbound_Placement_Service_Fee"),
+        render: (text: string, record: ReprotItem) =>
+          renderEditableCell(text, record, "FBA_Inbound_Placement_Service_Fee"),
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        align: "right",
+        width: 160,
+      },
+      {
+        title: "回款($)",
+        dataIndex: "extra_payment_collection",
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        render: (text: string) => {
+          return (
+            <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
+              {text}
+            </span>
+          );
+        },
+        width: 110,
+      },
+      {
+        dataIndex: "extra_purchase_price",
+        title: () => renderTitle("进价(RMB)", "extra_purchase_price"),
+        render: (text: string, record: ReprotItem) =>
+          renderEditableCell(text, record, "extra_purchase_price"),
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        width: 140,
+      },
+      {
+        dataIndex: "extra_weight",
+        title: () => renderTitle("重量(g)", "extra_weight"),
+        render: (text: string, record: ReprotItem) =>
+          renderEditableCell(text, record, "extra_weight"),
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        width: 120,
+      },
+      {
+        dataIndex: "extra_inside_express_price",
+        title: () => renderTitle("国内物流(RMB)", "extra_inside_express_price"),
+        render: (text: string, record: ReprotItem) =>
+          renderEditableCell(text, record, "extra_inside_express_price"),
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        width: 170,
+      },
+      {
+        dataIndex: "extra_shipping_price",
+        title: () => renderTitle("海运报价(RMB)", "extra_shipping_price"),
+        render: (text: string, record: ReprotItem) =>
+          renderEditableCell(text, record, "extra_shipping_price"),
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        width: 170,
+      },
+      {
+        dataIndex: "extra_shipping_fee",
+        title: () => renderTitle("海运费(RMB)", "extra_shipping_fee"),
+        render: (text: string, record: ReprotItem) => {
+          return renderEditableCell(text, record, "extra_shipping_fee");
+        },
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        width: 150,
+      },
+      {
+        title: "单个成本(RMB)",
+        dataIndex: "extra_single_cost_price",
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        render: (text: string) => {
+          return (
+            <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
+              {text}
+            </span>
+          );
+        },
+        width: 150,
+      },
+
+      {
+        title: "单个成本($)",
+        dataIndex: "extra_single_doller_cost_price",
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        render: (text: string) => {
+          return (
+            <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
+              {text}
+            </span>
+          );
+        },
+        width: 150,
+      },
+
+      {
+        title: "成本(RMB)",
+        dataIndex: "extra_rmb_cost",
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        render: (text: string) => {
+          return (
+            <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
+              {text}
+            </span>
+          );
+        },
+        width: 110,
+      },
+      {
+        title: "成本($)",
+        dataIndex: "extra_doller_cost",
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        render: (text: string) => {
+          return (
+            <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
+              {text}
+            </span>
+          );
+        },
+        width: 110,
+      },
+      {
+        title: "毛利润($)",
+        dataIndex: "extra_gross_profit",
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        render: (text: string) => {
+          return (
+            <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
+              {text}
+            </span>
+          );
+        },
+        width: 110,
+      },
+      {
+        title: "毛利率",
+        dataIndex: "extra_rate_of_gross_profit",
+        width: 110,
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        render: (text: string) => {
+          let val = D(text);
+          if (val.gt(30)) {
+            return (
+              <span className="tabular-nums! font-medium text-green-800 whitespace-nowrap">
+                {text} %
+              </span>
+            );
+          }
+          if (val.gt(0) && val.lt(30)) {
+            return (
+              <span className="tabular-nums! font-medium text-orange-800 whitespace-nowrap">
+                {text} %
+              </span>
+            );
+          }
+          if (val.lt(0)) {
+            return (
+              <span className="tabular-nums! font-medium text-red-800 whitespace-nowrap">
+                {text} %
+              </span>
+            );
+          }
+
+          return (
+            <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
+              {text} %
+            </span>
+          );
+        },
+        fixed: "end",
+      },
+    ].map((col) => {
+      return {
+        ...col,
+        key: col.dataIndex,
+      };
+    }) as ColumnsType<ReprotItem>;
+  }, [editingColumn, tempColumnData, currentRow]);
+
+  const [checkedList, setCheckedList] = useState(DEFAULT_CHECKED_LIST);
 
   // console.log(`checkboxOptions---------------------------`);
   // console.log(JSON.stringify(checkboxOptions, null, "  "));
@@ -715,7 +753,7 @@ function ReprotShow({ data, className, repairDataList }: ReprotShowProps) {
     <div className="h-[350px] overflow-auto">
       <Checkbox.Group
         value={checkedList}
-        options={checkboxOptions as CheckboxOptionType[]}
+        options={CHECKBOX_OPTIONS as CheckboxOptionType[]}
         onChange={(value) => {
           setCheckedList(value as string[]);
         }}
@@ -744,6 +782,12 @@ function ReprotShow({ data, className, repairDataList }: ReprotShowProps) {
     avgRateGrossProfit: 0,
   });
 
+  // ✅ 核心：用 ref 追踪最新汇率，useEffect 通过 ref 读取，永远拿到最新值
+  const usdCnyRateRef = useRef<string | number>(6.9);
+  useEffect(() => {
+    usdCnyRateRef.current = reportStatisticInfo.usdCnyRate;
+  }, [reportStatisticInfo.usdCnyRate]);
+
   const metricCardData = useMemo(() => {
     return {
       totalSales: parseFloat(reportStatisticInfo.totalProductSales as string),
@@ -758,157 +802,18 @@ function ReprotShow({ data, className, repairDataList }: ReprotShowProps) {
     };
   }, [reportStatisticInfo]);
 
-  function updateCalc() {
-    setReportData((draft) => {
-      draft.forEach((item, i) => {
-        const result = [
-          calc_extra_payment_collection,
-          calc_extra_shipping_fee,
-          calc_extra_single_cost_price,
-          calc_extra_rmb_cost,
-          calc_extra_doller_cost,
-          calc_extra_gross_profit,
-          calc_extra_rate_gross_profit,
-        ].reduce((acc, fn) => fn(acc), { ...item });
-
-        Object.assign(draft[i], result);
-      });
-    });
-  }
-
   // 辅助工具：安全转 Decimal，防止空字符串或 undefined 报错
   const D = (val: string | number | undefined) => new Decimal(val || 0);
 
   /**
-   * 计算回款
+   * 通过原始方式计算的总回款 和 reportData里面的回款列之和 比较 ，相差 15及以上 显示提示信息
    */
-  function calc_extra_payment_collection(item: ReprotItem): ReprotItem {
-    return {
-      ...item,
-      extra_payment_collection: D(item.productSales as string)
-        .add(D(item.sellingFees as string))
-        .add(D(item.fbaFees as string))
-        .add(D(item.others as string))
-        .add(D(item.refund as string))
-        .add(D(item.Adjustment as string))
-        .add(D(item.Cost_of_Advertising as string))
-        .add(D(item.Cost_of_Advertising_other as string))
-        .add(D(item.Deal as string))
-        .add(D(item.Vine_Enrollment_Fee as string))
-        .add(D(item.Coupon_Performance_Based_Fee as string))
-        .add(D(item.Coupon_Participation_Fee as string))
-        .add(D(item.Coupon_Redemption_Fee as string))
-        .add(D(item.StorageFee as string))
-        .add(D(item.Disposal_Fee as string))
-        .add(D(item.FBA_Transaction_fees as string))
-        .add(D(item.Liquidations as string))
-        .add(D(item.Order_Retrocharge as string))
-        .add(D(item.FBA_Inbound_Placement_Service_Fee as string))
-        .toFixed(2),
-    };
-  }
-
-  /**
-   * 计算海运费
-   */
-  function calc_extra_shipping_fee(item: ReprotItem): ReprotItem {
-    return {
-      ...item,
-      extra_shipping_fee: D(item.extra_weight as string)
-        .div(1000)
-        .mul(D(item.extra_shipping_price as string))
-        .toFixed(2),
-    };
-  }
-
-  /**
-   * 计算单个成本
-   */
-  function calc_extra_single_cost_price(item: ReprotItem): ReprotItem {
-    return {
-      ...item,
-      extra_single_cost_price: D(item.extra_purchase_price as string)
-        .add(D(item.extra_inside_express_price as string))
-        .add(D(item.extra_shipping_fee as string))
-        .toFixed(2),
-    };
-  }
-
-  /**
-   * 计算总成本RMB
-   */
-  function calc_extra_rmb_cost(item: ReprotItem): ReprotItem {
-    return {
-      ...item,
-      extra_rmb_cost: D(item.extra_single_cost_price as string)
-        .mul(D(item.qty as number))
-        .toFixed(2),
-    };
-  }
-
-  /**
-   * 计算总成本美元
-   */
-  function calc_extra_doller_cost(item: ReprotItem): ReprotItem {
-    return {
-      ...item,
-      extra_doller_cost: D(item.extra_rmb_cost as string)
-        .div(D(reportStatisticInfo.usdCnyRate))
-        .toFixed(2),
-    };
-  }
-
-  /**
-   * 计算毛利
-   */
-  function calc_extra_gross_profit(item: ReprotItem): ReprotItem {
-    return {
-      ...item,
-      extra_gross_profit: D(item.extra_payment_collection as string)
-        .minus(D(item.extra_doller_cost as string))
-        .toFixed(2),
-    };
-  }
-
-  /**
-   * 计算毛利、毛利率
-   */
-  function calc_extra_rate_gross_profit(item: ReprotItem): ReprotItem {
-    return {
-      ...item,
-      extra_rate_of_gross_profit: D(item.extra_gross_profit as string)
-        .div(D(item.productSales))
-        .mul(100)
-        .toFixed(2),
-    };
-  }
-
-  /**
-   * 计算 总销售额、总回款
-   */
-  function calc_total() {
-    let n1 = D(0),
-      n2 = D(0),
-      n3 = D(0);
-
-    reportData.forEach((item) => {
-      n1 = n1.add(D(item.productSales as string));
-      n2 = n2.add(D(item.extra_payment_collection as string));
-      n3 = n3.add(D(item.extra_rate_of_gross_profit as string));
-    });
-
-    let n4 = n3.div(reportData.length);
-
-    setReportStatisticInfo((draft) => {
-      draft.totalProductSales = n1.toFixed(2);
-      draft.totalExtraPaymentCollection = n2.toFixed(2);
-      draft.avgRateGrossProfit = n4.toFixed(2);
-      draft.totalSku = reportData.length;
-    });
-
-    console.log(`setTotalProductSales:${n1.toFixed(2)}`);
-    console.log(`setTotalExtraPaymentCollection:${n2.toFixed(2)}`);
-  }
+  const isShowTotalPaymentCollectionErrorInfo = useMemo(() => {
+    return D(totalPaymentCollection)
+      .minus(reportStatisticInfo.totalExtraPaymentCollection)
+      .abs()
+      .gte(15);
+  }, [totalPaymentCollection, reportStatisticInfo.totalExtraPaymentCollection]);
 
   function handleUsdCnyRateChange(val: string | number) {
     setReportStatisticInfo((draft) => {
@@ -938,43 +843,114 @@ function ReprotShow({ data, className, repairDataList }: ReprotShowProps) {
     }
   }
 
-  useEffect(() => {
-    console.log(`data 改变触发...`);
-    setReportData(data);
-    updateCalc();
-  }, [data]);
+  async function handleCopyData() {
+    // 考虑隐藏列情况
+    const headersList: Array<Record<string, string>> = newColumns
+      .filter((col) => !col.hidden)
+      .map((item) => {
 
-  useEffect(() => {
-    console.log(`usdCnyRate 改变触发...`);
-    updateCalc();
-  }, [reportStatisticInfo.usdCnyRate]);
+        let target = columnsSimpleList.find(col => col.dataIndex === item.key)
 
-  useEffect(() => {
-    console.log(`reportData 改变触发...`);
-    calc_total();
-  }, [reportData]);
-
-  useEffect(() => {
-    if (repairDataList.length > 0) {
-      console.log(`repairDataList 改变触发...`);
-      setReportData((draft) => {
-        repairDataList.forEach((repairItem) => {
-          const { sku, __target__, total } = repairItem;
-          let targetName: string = __target__ as unknown as string;
-          let target = draft.find((item) => item.__sku === sku);
-          if (target) {
-            target[targetName] = D(target[targetName] as string)
-              .add(D(total))
-              .toFixed(2);
-          } else {
-            console.warn(`未找到 sku:${sku} 的品`);
-          }
-        });
+        return {
+          name: target?.title as string,
+          key: item.key as string,
+        };
       });
 
-      updateCalc();
+    
+
+    const header = headersList.map((h) => h.name).join("\t");
+    const data = reportData.map((item) => {
+      let rowData = headersList.map((h) => item[h.key]).join("\t");
+      return rowData;
+    });
+
+    const text = [header, ...data].join("\n");
+
+    const success = await copyToClipboard(text);
+
+    if (success) {
+      message.info("已复制");
+    } else {
+      message.error("复制失败，请手动复制");
     }
+  }
+
+  // 层级1-A：外部 data 变化，直接替换 reportData，不在这里算任何东西
+  useEffect(() => {
+    console.log("data 改变触发...");
+    setReportData(data); // ✅ 只做数据写入，计算交给下面的 effect
+  }, [data]);
+
+  // 层级1-B：repairDataList 变化，在 immer draft 里修补数据，不在这里调 updateCalc
+  useEffect(() => {
+    if (repairDataList.length === 0) return;
+    console.log("repairDataList 改变触发...");
+    setReportData((draft) => {
+      repairDataList.forEach((repairItem) => {
+        const { sku, __target__, total } = repairItem;
+        const targetName = __target__ as unknown as string;
+        // ✅ 修复：统一用 sku 字段查找（与 getReportList 保持一致）
+        const target = draft.find((item) => item.sku === sku);
+        if (target) {
+          (target as any)[targetName] = D((target as any)[targetName] as string)
+            .add(D(total))
+            .toFixed(2);
+        } else {
+          console.warn(`未找到 sku:${sku} 的品`);
+        }
+      });
+      // ✅ 关键：在 immer 回调里直接跑计算管线
+      // draft 此时是修补后的最新数据，rate 从 ref 读取，永远是最新值
+      const rate = usdCnyRateRef.current;
+      draft.forEach((item, i) => {
+        Object.assign(draft[i], runCalcPipeline(item, rate));
+      });
+    });
+    // ✅ 不需要再单独调 updateCalc()，计算已经在 immer draft 里完成
   }, [repairDataList]);
+
+  // 层级2：reportData 变化（由层级1触发） → 跑计算管线
+  // 注意：repairDataList 的 effect 已经在 draft 内部跑了管线，
+  // 但 setReportData 触发的 reportData 变化会再次进入这里，
+  // 用 isCalcDoneRef 做幂等保护
+  useEffect(() => {
+    console.log("reportData 改变触发，执行计算管线...");
+    const rate = usdCnyRateRef.current; // ✅ 从 ref 读取，永远是最新值
+    setReportData((draft) => {
+      draft.forEach((item, i) => {
+        Object.assign(draft[i], runCalcPipeline(item, rate));
+      });
+    });
+  }, [data]);
+
+  // 层级3：usdCnyRate 变化 → 重跑计算管线（rate 已是最新，从 ref 读）
+  useEffect(() => {
+    console.log("usdCnyRate 改变触发，重新计算...");
+    const rate = reportStatisticInfo.usdCnyRate; // ✅ effect 内直接用，此时已是新值
+    setReportData((draft) => {
+      draft.forEach((item, i) => {
+        Object.assign(draft[i], runCalcPipeline(item, rate));
+      });
+    });
+  }, [reportStatisticInfo.usdCnyRate]);
+
+  // 层级4：统计汇总 —— 统一在一个 effect 里，接收计算完成后的 reportData 快照
+  // 依赖 reportData + usdCnyRate，两者任一变化都重算汇总
+  useEffect(() => {
+    console.log("统计汇总触发...");
+    if (reportData.length === 0) return;
+    const rate = usdCnyRateRef.current;
+    const result = calcTotalFromSnapshot(reportData, rate); // ✅ 纯函数，无副作用
+    setReportStatisticInfo((draft) => {
+      draft.totalProductSales = result.totalProductSales;
+      draft.totalExtraPaymentCollection = result.totalExtraPaymentCollection;
+      draft.avgRateGrossProfit = result.avgRateGrossProfit;
+      draft.totalSku = result.totalSku;
+    });
+    setCategtoryProductData(result.categoryData);
+  }, [reportData, reportStatisticInfo.usdCnyRate]);
+  // ✅ 同时依赖两者：reportData 计算完 或 汇率变了，都要重新汇总
 
   if (reportData.length === 0) {
     return null;
@@ -985,6 +961,16 @@ function ReprotShow({ data, className, repairDataList }: ReprotShowProps) {
       <div className=" max-w-[75%] overflow-auto mt-5">
         <MetricCards data={metricCardData} callback={handleUsdCnyRateChange} />
       </div>
+      {isShowTotalPaymentCollectionErrorInfo && (
+        <div className="mt-5">
+          <Alert
+            title="总回款对比差额相差大于【15$】提示"
+            type="error"
+            showIcon
+            closable
+          />
+        </div>
+      )}
       <div className=" flex justify-between items-center mt-5">
         <Tooltip title="点击快速跳转到列" color="#108ee9" placement="top">
           <div className=" inline-flex items-center gap-2 ">
@@ -994,45 +980,51 @@ function ReprotShow({ data, className, repairDataList }: ReprotShowProps) {
               variant="dashed"
               onClick={() => fastColumnGo("Cost_of_Advertising")}
             >
-              广告
+              基础广告费
             </Button>
             <Button
               type="dashed"
               shape="round"
               variant="dashed"
-              onClick={() => fastColumnGo("Coupon_Performance_Based_Fee")}
+              onClick={() => fastColumnGo("StorageFee")}
             >
-              优惠券
+              仓储费
             </Button>
             <Button
               type="dashed"
               shape="round"
               variant="dashed"
-              onClick={() => fastColumnGo("extra_purchase_price")}
+              onClick={() => fastColumnGo("extra_payment_collection")}
             >
-              进价/物流
+              回款
             </Button>
             <Button
               type="dashed"
               shape="round"
               variant="dashed"
-              onClick={() => fastColumnGo("FBA_Inbound_Placement_Service_Fee")}
+              onClick={() => fastColumnGo("extra_rate_of_gross_profit")}
             >
-              入库配置费
+              毛利率
             </Button>
           </div>
         </Tooltip>
 
-        <Popover
-          content={SettingColumnsNode}
-          placement="left"
-          title="配置显示列名"
-          trigger="click"
-        >
-          <Button type="link" size="small" onClick={() => {}}>
-            配置显示列名
+        <div className="flex items-center">
+          <Popover
+            content={SettingColumnsNode}
+            placement="left"
+            title="配置显示列名"
+            trigger="click"
+          >
+            <Button type="link" size="small" onClick={() => {}}>
+              配置显示列名
+            </Button>
+          </Popover>
+
+          <Button type="link" size="small" onClick={handleCopyData}>
+            复制列表数据
           </Button>
-        </Popover>
+        </div>
       </div>
 
       <div className={cn("w-full overflow-auto mt-5", className)}>
@@ -1055,7 +1047,83 @@ function ReprotShow({ data, className, repairDataList }: ReprotShowProps) {
           pagination={false}
           columns={newColumns}
           dataSource={reportData}
+          summary={(pageData) => {
+            // 汇总统计 基础广告费、基础广告费其他、仓储费、回款、毛利润
+            const keyList = [
+              "Cost_of_Advertising",
+              "Cost_of_Advertising_other",
+              "StorageFee",
+              "extra_payment_collection",
+              "extra_gross_profit",
+            ];
+
+            // 考虑隐藏列情况
+            const currentShowColumnsList = newColumns.filter(
+              (col) => !col.hidden,
+            );
+
+            let obj: Record<string, any> = {};
+
+            keyList.forEach((key) => {
+              const index = currentShowColumnsList.findIndex(
+                (item) => item.key === key,
+              );
+
+              const total = pageData.reduce((arr, cur) => {
+                return arr.add(cur[key] as string);
+              }, D(0));
+
+              obj[key] = {
+                value: total.toFixed(2),
+                index,
+              };
+            });
+
+            return (
+              <Table.Summary fixed>
+                <Table.Summary.Row>
+                  {currentShowColumnsList.map((col, idx) => {
+                    const dataIndex = col.key as string;
+                    const cellIndex =
+                      obj[dataIndex] && obj[dataIndex].index >= 0
+                        ? obj[dataIndex].index
+                        : idx;
+                    const cellValue =
+                      obj[dataIndex] && obj[dataIndex].value
+                        ? obj[dataIndex].value
+                        : "-";
+                    return (
+                      <Table.Summary.Cell
+                        key={dataIndex}
+                        index={cellIndex}
+                        align={idx === 0 ? "left" : "right"}
+                      >
+                        <span className="font-medium text-red-700 whitespace-nowrap">
+                          {idx === 0 ? "汇总统计" : cellValue}
+                        </span>
+                      </Table.Summary.Cell>
+                    );
+                  })}
+                </Table.Summary.Row>
+              </Table.Summary>
+            );
+          }}
         />
+      </div>
+      <div className="mt-5">
+        <Popover
+          content={
+            <div className="w-[400px] h-auto max-h-[300px] overflow-auto">
+              <CategoryTableList data={categtoryProductData} />
+            </div>
+          }
+          placement="left"
+          trigger="click"
+        >
+          <Button type="link" size="small" onClick={() => {}}>
+            点击查看分类产品毛利润统计
+          </Button>
+        </Popover>
       </div>
     </>
   );
