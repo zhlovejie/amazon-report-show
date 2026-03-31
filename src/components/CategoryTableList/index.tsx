@@ -1,7 +1,9 @@
 import { cn } from "@/utils/classnames";
 import { Button, message, Table, type TableProps } from "antd";
 import { useEffect, useState } from "react";
-import { copyToClipboard } from "@/utils/common";
+import { copyToClipboard, calcSummaryData } from "@/utils/common";
+
+import { TableSummaryRow } from "@/components/TableSummaryRow";
 
 interface CategoryTableRow {
   name: string;
@@ -39,25 +41,6 @@ function CategoryTableList({ className, data }: CategoryTableListProps) {
         style: { textAlign: "left", color: "#73726c" },
       }),
     },
-    
-    {
-      key: "gross_profit_rmb",
-      title: "毛利润(RMB)",
-      dataIndex: "gross_profit_rmb",
-      width: 100,
-      align: "right",
-      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
-      onHeaderCell: () => ({
-        style: { textAlign: "center", color: "#73726c" },
-      }),
-      render: (text: string) => {
-        return (
-          <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
-            {text}
-          </span>
-        );
-      },
-    },
     {
       key: "gross_profit_doller",
       title: "毛利润($)",
@@ -76,18 +59,53 @@ function CategoryTableList({ className, data }: CategoryTableListProps) {
         );
       },
     },
+    {
+      key: "gross_profit_rmb",
+      title: "毛利润(RMB)",
+      dataIndex: "gross_profit_rmb",
+      width: 100,
+      align: "right",
+      // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+      onHeaderCell: () => ({
+        style: { textAlign: "center", color: "#73726c" },
+      }),
+      render: (text: string) => {
+        return (
+          <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
+            {text}
+          </span>
+        );
+      },
+    },
   ];
 
   async function handleCopyData() {
-    const headerList = columns
-      ?.filter((col) => col.key !== "order")
+    const headerList = columns?.filter((col) => col.key !== "order");
+    // 复制表头
+    const header = headerList?.map((h) => h.title).join("\t");
 
-    const header = headerList?.map(h => h.title).join("\t")
+    // 复制行数据
     const data = reportData.map((item) => {
-      const rowData = headerList?.map(h => item[h.key as keyof CategoryTableRow]).join("\t");
-      return rowData
+      const rowData = headerList
+        ?.map((h) => item[h.key as keyof CategoryTableRow])
+        .join("\t");
+      return rowData;
     });
-    const text = [header, ...data].join("\n");
+
+    // 复制汇总数据
+    const summaryObj = calcSummaryData(reportData, columns ?? [], [
+      "gross_profit_doller",
+      "gross_profit_rmb",
+    ]);
+
+    const summary = headerList
+      ?.map((h, idx) => {
+        let cell = summaryObj[h.key as keyof CategoryTableRow] || "-";
+        return idx === 0 ? "汇总统计" : cell.value;
+      })
+      .join("\t");
+
+    const text = [header, ...data, summary].join("\n");
 
     const success = await copyToClipboard(text);
 
@@ -117,6 +135,20 @@ function CategoryTableList({ className, data }: CategoryTableListProps) {
         pagination={false}
         columns={columns}
         dataSource={reportData}
+        summary={(pageData) => {
+          const summaryObj = calcSummaryData(pageData, columns, [
+            "gross_profit_doller",
+            "gross_profit_rmb",
+          ]);
+
+          return (
+            <TableSummaryRow
+              columns={columns}
+              summaryObj={summaryObj}
+              label="汇总统计"
+            />
+          );
+        }}
       />
     </div>
   );

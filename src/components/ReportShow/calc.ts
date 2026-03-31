@@ -120,13 +120,20 @@ function calc_extra_gross_profit(item: ReprotItem): ReprotItem {
  * 计算毛利、毛利率
  */
 function calc_extra_rate_gross_profit(item: ReprotItem): ReprotItem {
-  return {
-    ...item,
-    extra_rate_of_gross_profit: D(item.extra_gross_profit as string)
-      .div(D(item.productSales))
-      .mul(100)
-      .toFixed(2),
-  };
+  if(D(item.productSales).eq(0)){
+    return {
+      ...item,
+      extra_rate_of_gross_profit: D(0).toFixed(2),
+    };
+  }else{
+    return {
+      ...item,
+      extra_rate_of_gross_profit: D(item.extra_gross_profit as string)
+        .div(D(item.productSales))
+        .mul(100)
+        .toFixed(2),
+    };
+  }
 }
 
 // ============================================================

@@ -964,8 +964,12 @@ class ReportCalc {
     const { statement_summary_totals, single_country_campaign_details } =
       adsData;
 
-    const { total_adjustments, total_regulatory_advertising_fees } =
-      statement_summary_totals;
+    // 广告账单汇总金额 (包括：品的广告费、调整费用、税费、其他费用)
+    const total_amount_due = statement_summary_totals.total_amount_due;
+    // 这里是 品的广告费 汇总金额
+    const campaign_charge_details_total = single_country_campaign_details.campaign_charge_details_total
+    // 两者的差值取负数
+    const ads_other_fee = Decimal(total_amount_due).minus(campaign_charge_details_total).negated().toFixed(2)
 
     let _toatal = Decimal(0);
     that.productList.map((p) => {
@@ -995,12 +999,14 @@ class ReportCalc {
       }
     });
 
-    if (!_toatal.equals(statement_summary_totals.total_campaign_charges)) {
+    console.warn(`广告总费用：${Decimal(total_amount_due).toFixed(2)}`)
+    console.warn(`产品总费用：${Decimal(campaign_charge_details_total).toFixed(2)}`)
+    console.warn(`其它总费用：${Decimal(ads_other_fee).toFixed(2)}`)
+
+    if (!_toatal.equals(Decimal(campaign_charge_details_total).negated())) {
       console.warn("广告计算不匹配");
       console.warn(`本地计算   _toatal:${_toatal}`);
-      console.warn(
-        `大模型计算 _toatal:${statement_summary_totals.total_campaign_charges}`,
-      );
+      console.warn(`大模型计算 _toatal:${campaign_charge_details_total}`);
     }
 
     let isDone = false;
@@ -1009,12 +1015,7 @@ class ReportCalc {
       const currentAdsCost = Decimal(reportSku["Cost_of_Advertising"] || 0);
 
       if (!currentAdsCost.equals(0) && !isDone) {
-        // 合并计算费用并取负值
-        const otherFee = Decimal(total_adjustments)
-          .plus(total_regulatory_advertising_fees)
-          .negated();
-
-        reportSku["Cost_of_Advertising_other"] = otherFee.toFixed(2);
+        reportSku["Cost_of_Advertising_other"] = ads_other_fee;
         isDone = true;
       } else {
         reportSku["Cost_of_Advertising_other"] = "0.00";
@@ -1024,22 +1025,17 @@ class ReportCalc {
     // 3. 兜底逻辑：如果循环结束 isDone 仍为 false，说明没找到有广告费的产品
     if (!isDone && that.productList.length > 0) {
       // 这种情况下，你可能需要将费用挂载到第一个产品或某个特定位置，防止丢账
-      // 合并计算费用并取负值
-      const otherFee = Decimal(total_adjustments)
-        .plus(total_regulatory_advertising_fees)
-        .negated()
-        .toFixed(2);
       // 放在第一品上，防止丢账
       if (that.productList.length > 0) {
         const reportSku = that.report[that.productList[0].__sku] as any;
-        reportSku["Cost_of_Advertising_other"] = otherFee;
+        reportSku["Cost_of_Advertising_other"] = ads_other_fee;
 
         console.warn(
-          `未找到有广告费的产品，杂费暂时分配到${that.productList[0].__sku}条目中！  otherFee:${otherFee}`,
+          `未找到有广告费的产品，杂费暂时分配到${that.productList[0].__sku}条目中！  otherFee:${ads_other_fee}`,
         );
       } else {
         console.warn(
-          `未找到有广告费的产品，杂费未分配！  otherFee:${otherFee}`,
+          `未找到有广告费的产品，杂费未分配！  otherFee:${ads_other_fee}`,
         );
       }
     }

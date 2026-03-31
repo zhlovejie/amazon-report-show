@@ -85,6 +85,32 @@ other transaction fees、
 other
 列，计算方式为各项累加后再相加
 
+12个月的英文缩写（标准三字母形式）如下：
+
+Jan - 一月 (January)
+
+Feb - 二月 (February)
+
+Mar - 三月 (March)
+
+Apr - 四月 (April)
+
+May - 五月 (May) (注：本身已是三字母，通常不缩写，直接使用 May)
+
+Jun - 六月 (June)
+
+Jul - 七月 (July)
+
+Aug - 八月 (August)
+
+Sep - 九月 (September)
+
+Oct - 十月 (October)
+
+Nov - 十一月 (November)
+
+Dec - 十二月 (December)
+
 
 报表优化的几点：
 -1、进价(RMB)、重量(g)、国内物流(RMB)，需要自动填上固定的默认值，如果有修改，再点击修改即可

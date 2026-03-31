@@ -203,123 +203,128 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
       >
         {showPanel ? "隐藏导入区" : "显示导入区"}
       </Button>
+
       <div
         className={cn(
-          "p-5 bg-red-50 rounded-md",
-          showPanel ? "h-auto" : "h-0! p-0! overflow-hidden",
+          "grid transition-[grid-template-rows] duration-300 ease-in-out",
+          showPanel ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
         )}
       >
-        <div className=" grid grid-cols-3 gap-5 mb-5">
-          <div className="flex justify-start items-start relative p-2 bg-white rounded-md shadow-md">
-            {!fileInputOrderName && (
-              <div className="w-[300px] h-[100px]">
-                <input
-                  className=" opacity-0 absolute top-0 left-0 right-0 bottom-0 cursor-pointer"
-                  ref={fileInputOrderRef}
-                  accept=".csv"
-                  type="file"
-                  name="orderfile"
-                  id="orderfile"
-                  onChange={handleFileChange}
-                />
-                <div className=" text-[18px] absolute top-0 left-0 right-0 bottom-0 flex items-center justify-center pointer-events-none">
-                  上传销售报表
-                </div>
+        <div className="overflow-hidden">
+          <div className="p-5 bg-red-50 rounded-md mt-2">
+            <div className=" grid grid-cols-3 gap-5 mb-5">
+              <div className="flex justify-start items-start relative p-2 bg-white rounded-md shadow-md">
+                {!fileInputOrderName && (
+                  <div className="w-[300px] h-[100px]">
+                    <input
+                      className=" opacity-0 absolute top-0 left-0 right-0 bottom-0 cursor-pointer"
+                      ref={fileInputOrderRef}
+                      accept=".csv"
+                      type="file"
+                      name="orderfile"
+                      id="orderfile"
+                      onChange={handleFileChange}
+                    />
+                    <div className=" text-[18px] absolute top-0 left-0 right-0 bottom-0 flex items-center justify-center pointer-events-none">
+                      上传销售报表
+                    </div>
+                  </div>
+                )}
+                {fileInputOrderName && (
+                  <div className="w-full h-[100px] flex items-center justify-center pointer-events-non">
+                    <span className=" break-all ">{fileInputOrderName}</span>
+                    <Button
+                      type="default"
+                      shape="circle"
+                      title="清除"
+                      style={{ position: "absolute", top: 5, right: 5 }}
+                      icon={<CloseOutlined />}
+                      onClick={() => handleFileRemove("order")}
+                    />
+                  </div>
+                )}
               </div>
-            )}
-            {fileInputOrderName && (
-              <div className="w-full h-[100px] flex items-center justify-center pointer-events-non">
-                <span className=" break-all ">{fileInputOrderName}</span>
+
+              <div className="flex justify-start items-start relative p-2 bg-white rounded-md shadow-md">
+                {!fileInputStorageName && (
+                  <div className="w-[300px] h-[100px]">
+                    <input
+                      className=" opacity-0 absolute top-0 left-0 right-0 bottom-0 cursor-pointer"
+                      ref={fileInputStorageRef}
+                      accept=".csv"
+                      type="file"
+                      name="storagefile"
+                      id="storagefile"
+                      onChange={handleFileChange}
+                    />
+                    <div className=" text-[18px] absolute top-0 left-0 right-0 bottom-0 flex items-center justify-center pointer-events-none">
+                      上传仓储报表
+                    </div>
+                  </div>
+                )}
+                {fileInputStorageName && (
+                  <div className="w-full h-[100px] flex items-center justify-center pointer-events-non">
+                    <span className=" break-all ">{fileInputStorageName}</span>
+
+                    <Button
+                      type="default"
+                      shape="circle"
+                      title="清除"
+                      style={{ position: "absolute", top: 5, right: 5 }}
+                      icon={<CloseOutlined />}
+                      onClick={() => handleFileRemove("storage")}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-start items-start relative p-2 bg-white rounded-md shadow-md">
+                {!fileInputAdsName && (
+                  <div className="w-[300px] h-[100px]">
+                    <input
+                      className=" opacity-0 absolute top-0 left-0 right-0 bottom-0 cursor-pointer"
+                      ref={fileInputAdsRef}
+                      accept=".pdf"
+                      type="file"
+                      name="adsfile"
+                      id="adsfile"
+                      onChange={handleFileChange}
+                    />
+                    <div className=" text-[18px] absolute top-0 left-0 right-0 bottom-0 flex items-center justify-center pointer-events-none">
+                      上传广告报表
+                    </div>
+                  </div>
+                )}
+                {fileInputAdsName && (
+                  <div className="w-full h-[100px] flex items-center justify-center pointer-events-non">
+                    <span className=" break-all ">{fileInputAdsName}</span>
+
+                    <Button
+                      type="default"
+                      shape="circle"
+                      title="清除"
+                      style={{ position: "absolute", top: 5, right: 5 }}
+                      icon={<CloseOutlined />}
+                      onClick={() => handleFileRemove("ads")}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className=" flex items-center justify-between py-2 px-4">
+              <div className=" w-1/2 m-auto">
                 <Button
-                  type="default"
-                  shape="circle"
-                  title="清除"
-                  style={{ position: "absolute", top: 5, right: 5 }}
-                  icon={<CloseOutlined />}
-                  onClick={() => handleFileRemove("order")}
-                />
+                  type="dashed"
+                  block
+                  shape="round"
+                  size="large"
+                  onClick={initFilesData}
+                >
+                  开始统计
+                </Button>
               </div>
-            )}
-          </div>
-
-          <div className="flex justify-start items-start relative p-2 bg-white rounded-md shadow-md">
-            {!fileInputStorageName && (
-              <div className="w-[300px] h-[100px]">
-                <input
-                  className=" opacity-0 absolute top-0 left-0 right-0 bottom-0 cursor-pointer"
-                  ref={fileInputStorageRef}
-                  accept=".csv"
-                  type="file"
-                  name="storagefile"
-                  id="storagefile"
-                  onChange={handleFileChange}
-                />
-                <div className=" text-[18px] absolute top-0 left-0 right-0 bottom-0 flex items-center justify-center pointer-events-none">
-                  上传仓储报表
-                </div>
-              </div>
-            )}
-            {fileInputStorageName && (
-              <div className="w-full h-[100px] flex items-center justify-center pointer-events-non">
-                <span className=" break-all ">{fileInputStorageName}</span>
-
-                <Button
-                  type="default"
-                  shape="circle"
-                  title="清除"
-                  style={{ position: "absolute", top: 5, right: 5 }}
-                  icon={<CloseOutlined />}
-                  onClick={() => handleFileRemove("storage")}
-                />
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-start items-start relative p-2 bg-white rounded-md shadow-md">
-            {!fileInputAdsName && (
-              <div className="w-[300px] h-[100px]">
-                <input
-                  className=" opacity-0 absolute top-0 left-0 right-0 bottom-0 cursor-pointer"
-                  ref={fileInputAdsRef}
-                  accept=".pdf"
-                  type="file"
-                  name="adsfile"
-                  id="adsfile"
-                  onChange={handleFileChange}
-                />
-                <div className=" text-[18px] absolute top-0 left-0 right-0 bottom-0 flex items-center justify-center pointer-events-none">
-                  上传广告报表
-                </div>
-              </div>
-            )}
-            {fileInputAdsName && (
-              <div className="w-full h-[100px] flex items-center justify-center pointer-events-non">
-                <span className=" break-all ">{fileInputAdsName}</span>
-
-                <Button
-                  type="default"
-                  shape="circle"
-                  title="清除"
-                  style={{ position: "absolute", top: 5, right: 5 }}
-                  icon={<CloseOutlined />}
-                  onClick={() => handleFileRemove("ads")}
-                />
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className=" flex items-center justify-between py-2 px-4">
-          <div className=" w-1/2 m-auto">
-            <Button
-              type="dashed"
-              block
-              shape="round"
-              size="large"
-              onClick={initFilesData}
-            >
-              开始统计
-            </Button>
+            </div>
           </div>
         </div>
       </div>

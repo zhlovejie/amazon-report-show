@@ -23,15 +23,9 @@ import CategoryTableList from "../CategoryTableList";
 import { useImmer } from "use-immer";
 import Decimal from "decimal.js";
 
-import {
-  columnsSimpleList,
-  copyToClipboard,
-  calcSummaryData,
-} from "@/utils/common";
+import { columnsSimpleList, copyToClipboard } from "@/utils/common";
 
 import { runCalcPipeline, calcTotalFromSnapshot } from "./calc";
-
-import { TableSummaryRow } from "@/components/TableSummaryRow";
 
 interface ReprotShowProps {
   data: Array<ReprotItem>;
@@ -815,9 +809,7 @@ function ReprotShow({
    * 通过原始方式计算的总回款 和 reportData里面的回款列之和 比较 ，相差 15及以上 显示提示信息
    */
   const isShowTotalPaymentCollectionErrorInfo = useMemo(() => {
-    console.log(
-      `totalPaymentCollection:${totalPaymentCollection} reportStatisticInfo.totalExtraPaymentCollection:${reportStatisticInfo.totalExtraPaymentCollection}`,
-    );
+    console.log(`totalPaymentCollection:${totalPaymentCollection} reportStatisticInfo.totalExtraPaymentCollection:${reportStatisticInfo.totalExtraPaymentCollection}`)
     return D(totalPaymentCollection)
       .minus(reportStatisticInfo.totalExtraPaymentCollection)
       .abs()
@@ -857,9 +849,8 @@ function ReprotShow({
     const headersList: Array<Record<string, string>> = newColumns
       .filter((col) => !col.hidden)
       .map((item) => {
-        let target = columnsSimpleList.find(
-          (col) => col.dataIndex === item.key,
-        );
+
+        let target = columnsSimpleList.find(col => col.dataIndex === item.key)
 
         return {
           name: target?.title as string,
@@ -867,52 +858,15 @@ function ReprotShow({
         };
       });
 
-    // 复制头部汇总数据
+    
 
-    const summaryTitle = [
-      ["总销售额", "总回款", "汇率", "平均毛利率"].join("\t"),
-      [
-        metricCardData.totalSales,
-        metricCardData.totalReceived,
-        metricCardData.exchangeRate,
-        metricCardData.avgGrossMargin,
-      ].join("\t"),
-    ];
-
-    // 复制表头
     const header = headersList.map((h) => h.name).join("\t");
-    // 复制行数据
     const data = reportData.map((item) => {
       let rowData = headersList.map((h) => item[h.key]).join("\t");
       return rowData;
     });
 
-    // 复制底部汇总数据
-    const keyList = [
-      "Cost_of_Advertising",
-      "Cost_of_Advertising_other",
-      "StorageFee",
-      "extra_payment_collection",
-      "extra_gross_profit",
-    ];
-
-    // 考虑隐藏列情况
-    const currentShowColumnsList = newColumns.filter((col) => !col.hidden);
-
-    const summaryObj = calcSummaryData(
-      reportData,
-      currentShowColumnsList,
-      keyList,
-    );
-
-    const summary = currentShowColumnsList
-      ?.map((h, idx) => {
-        let cell = summaryObj[h.key as keyof ReprotItem] || "-";
-        return idx === 0 ? "汇总统计" : cell.value;
-      })
-      .join("\t");
-
-    const text = [...summaryTitle, "", "", header, ...data, summary].join("\n");
+    const text = [header, ...data].join("\n");
 
     const success = await copyToClipboard(text);
 
@@ -1103,24 +1057,57 @@ function ReprotShow({
               "extra_payment_collection",
               "extra_gross_profit",
             ];
+            
 
             // 考虑隐藏列情况
             const currentShowColumnsList = newColumns.filter(
               (col) => !col.hidden,
             );
 
-            const summaryObj = calcSummaryData(
-              pageData,
-              currentShowColumnsList,
-              keyList,
-            );
+            let obj: Record<string, any> = {};
+
+            keyList.forEach((key) => {
+              const index = currentShowColumnsList.findIndex(
+                (item) => item.key === key,
+              );
+
+              const total = pageData.reduce((arr, cur) => {
+                return arr.add(cur[key] as string);
+              }, D(0));
+
+              obj[key] = {
+                value: total.toFixed(2),
+                index,
+              };
+            });
 
             return (
-              <TableSummaryRow
-                columns={currentShowColumnsList}
-                summaryObj={summaryObj}
-                label="汇总统计"
-              />
+              <Table.Summary fixed>
+                <Table.Summary.Row>
+                  {currentShowColumnsList.map((col, idx) => {
+                    const dataIndex = col.key as string;
+                    const cellIndex =
+                      obj[dataIndex] && obj[dataIndex].index >= 0
+                        ? obj[dataIndex].index
+                        : idx;
+                    const cellValue =
+                      obj[dataIndex] && obj[dataIndex].value
+                        ? obj[dataIndex].value
+                        : "-";
+                    return (
+                      <Table.Summary.Cell
+                        key={dataIndex}
+                        index={cellIndex}
+                        align={idx === 0 ? "left" : "right"}
+                      >
+                        <span className="font-medium text-red-700 whitespace-nowrap">
+                          {idx === 0 ? "汇总统计" : cellValue}
+                        </span>
+                      </Table.Summary.Cell>
+                    );
+                  })}
+                </Table.Summary.Row>
+              </Table.Summary>
             );
           }}
         />

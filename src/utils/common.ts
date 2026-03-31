@@ -1,5 +1,7 @@
 import MD5 from "crypto-js/MD5";
 import deepseek_parse_pdf from "@/utils/request";
+import type { ColumnType } from "antd/es/table";
+import Decimal from "decimal.js";
 
 export function md5WithChinese(str: string) {
   let _str = str.trim().toLocaleLowerCase();
@@ -97,6 +99,31 @@ export const copyToClipboard = async (text: string) => {
     return false;
   }
 };
+
+/**
+ * 计算汇总行数据
+ * @param pageData 表格数据
+ * @param columns 列配置
+ * @param sumKeys 需要求和的字段名
+ */
+export function calcSummaryData<T extends Record<string, any>>(
+  pageData: readonly T[],
+  columns: ColumnType<T>[],
+  sumKeys: (keyof T)[],
+) {
+  const result: Record<string, { value: string; index: number }> = {};
+
+  sumKeys.forEach((key) => {
+    const index = columns.findIndex((col) => col.key === key);
+    const total = pageData.reduce(
+      (acc, cur) => acc.add(cur[key] ?? 0),
+      new Decimal(0),
+    );
+    result[key as string] = { value: total.toFixed(2), index };
+  });
+
+  return result;
+}
 
 export const columnsSimpleList = [
   {
