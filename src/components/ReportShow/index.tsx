@@ -1,4 +1,8 @@
-import type { ReprotItem, CategoryTableRow } from "@/types/common";
+import type {
+  ReprotItem,
+  CategoryTableRow,
+  IReportSourceData,
+} from "@/types/common";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/utils/classnames";
 // import Button from "@/components/Button";
@@ -37,7 +41,7 @@ interface ReprotShowProps {
   data: Array<ReprotItem>;
   repairDataList: Array<ReprotItem>;
   className?: string;
-  totalPaymentCollection: string;
+  reportSourceData: IReportSourceData;
 }
 
 // 配置显示列功能-------------------------
@@ -51,11 +55,23 @@ const CHECKBOX_OPTIONS = columnsSimpleList.map(({ dataIndex, title }) => ({
   value: dataIndex,
 }));
 
+/**配置限制  快速跳转到列 */
+const FAST_COLUMN_KEY_LIST = [
+  "Cost_of_Advertising",
+  "AdvertisingRate",
+  "StorageFee",
+  "extra_payment_collection",
+  "extra_rate_of_gross_profit",
+].map((key) => {
+  let target = columnsSimpleList.find((col) => col.dataIndex === key);
+  return target;
+});
+
 function ReprotShow({
   data,
   className,
   repairDataList,
-  totalPaymentCollection,
+  reportSourceData,
 }: ReprotShowProps) {
   const tableRef = useRef<TableRef>(null);
   const [reportData, setReportData] = useImmer<Array<ReprotItem>>([]);
@@ -88,9 +104,16 @@ function ReprotShow({
   // 2. 保存该列的修改
   const saveColumn = () => {
     if (!editingColumn) return;
+
+    const rate = usdCnyRateRef.current; // ✅ 读最新汇率
     setReportData((draft) => {
       draft.forEach((item) => {
         item[editingColumn] = tempColumnData[item.__key];
+      });
+
+      // ✅ 保存完立即重跑计算管线，在同一个 immer draft 内完成
+      draft.forEach((item, i) => {
+        Object.assign(draft[i], runCalcPipeline(item, rate));
       });
     });
     setEditingColumn(null);
@@ -458,6 +481,25 @@ function ReprotShow({
         align: "right",
         width: 160,
       },
+
+      {
+        title: "广告占比",
+        dataIndex: "AdvertisingRate",
+        align: "right",
+        // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        render: (text: string) => {
+          return (
+            <span className="tabular-nums! font-medium text-gray-800 whitespace-nowrap">
+              {text} %
+            </span>
+          );
+        },
+        width: 110,
+      },
+
       {
         dataIndex: "StorageFee",
         title: () => renderTitle("仓储费", "StorageFee"),
@@ -536,7 +578,11 @@ function ReprotShow({
         align: "right",
         // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
         onHeaderCell: () => ({
-          style: { textAlign: "center", color: "#73726c" },
+          style: {
+            textAlign: "center",
+            color: "#fff",
+            backgroundColor: "#3A3838",
+          },
         }),
         render: (text: string) => {
           return (
@@ -811,19 +857,6 @@ function ReprotShow({
   // 辅助工具：安全转 Decimal，防止空字符串或 undefined 报错
   const D = (val: string | number | undefined) => new Decimal(val || 0);
 
-  /**
-   * 通过原始方式计算的总回款 和 reportData里面的回款列之和 比较 ，相差 15及以上 显示提示信息
-   */
-  const isShowTotalPaymentCollectionErrorInfo = useMemo(() => {
-    console.log(
-      `totalPaymentCollection:${totalPaymentCollection} reportStatisticInfo.totalExtraPaymentCollection:${reportStatisticInfo.totalExtraPaymentCollection}`,
-    );
-    return D(totalPaymentCollection)
-      .minus(reportStatisticInfo.totalExtraPaymentCollection)
-      .abs()
-      .gte(15);
-  }, [totalPaymentCollection, reportStatisticInfo.totalExtraPaymentCollection]);
-
   function handleUsdCnyRateChange(val: string | number) {
     setReportStatisticInfo((draft) => {
       draft.usdCnyRate = val;
@@ -875,7 +908,7 @@ function ReprotShow({
         metricCardData.totalSales,
         metricCardData.totalReceived,
         metricCardData.exchangeRate,
-        metricCardData.avgGrossMargin,
+        String(metricCardData.avgGrossMargin) + " %",
       ].join("\t"),
     ];
 
@@ -883,7 +916,19 @@ function ReprotShow({
     const header = headersList.map((h) => h.name).join("\t");
     // 复制行数据
     const data = reportData.map((item) => {
-      let rowData = headersList.map((h) => item[h.key]).join("\t");
+      let rowData = headersList
+        .map((h) => {
+          // 这些列需要添加 百分号
+          let addRateKeyList = [
+            "refundRate",
+            "AdvertisingRate",
+            "extra_rate_of_gross_profit",
+          ];
+          return addRateKeyList.includes(h.key)
+            ? `${item[h.key]} %`
+            : item[h.key];
+        })
+        .join("\t");
       return rowData;
     });
 
@@ -999,6 +1044,75 @@ function ReprotShow({
   }, [reportData, reportStatisticInfo.usdCnyRate]);
   // ✅ 同时依赖两者：reportData 计算完 或 汇率变了，都要重新汇总
 
+  /**
+   * 数据对比预警
+   * 原始数据和处理后的数据对比，校验用于发现问题
+   * 获取原始报表中的 总回款费、总广告费、存储和超期存储费
+   */
+  const shouldTriggerAlarm = useMemo(() => {
+    // 源数据
+    const {
+      payment: source_payment,
+      ads: source_ads,
+      storage: source_storage,
+    } = reportSourceData;
+
+    // 计算数据
+    const payment = D(reportStatisticInfo.totalExtraPaymentCollection).toFixed(
+      2,
+    );
+    const ads = reportData
+      .reduce((acc, cur) => {
+        return acc
+          .add(D(cur.Cost_of_Advertising as string))
+          .add(D(cur.Cost_of_Advertising_other as string));
+      }, D(0))
+      .toFixed(2);
+    const storage = reportData
+      .reduce((acc, cur) => {
+        return acc.add(D(cur.StorageFee as string));
+      }, D(0))
+      .toFixed(2);
+
+    const msg: Array<string> = [];
+
+    const alert_payment_threshold = 15;
+    const alert_ads_threshold = 10;
+    const alert_storage_threshold = 5;
+
+    const diff_alert_payment = D(payment)
+      .abs()
+      .minus(D(source_payment).abs())
+      .abs();
+    const diff_alert_ads = D(ads).abs().minus(D(source_ads).abs()).abs();
+    const diff_alert_storage = D(storage)
+      .abs()
+      .minus(D(source_storage).abs())
+      .abs();
+
+    const is_alert_payment = diff_alert_payment.gte(alert_payment_threshold);
+    const is_alert_ads = diff_alert_ads.gte(alert_ads_threshold);
+    const is_alert_storage = diff_alert_storage.gte(alert_storage_threshold);
+
+    if (is_alert_payment) {
+      msg.push(
+        `【回款差额 $${alert_payment_threshold} 预警】: 原始报表数据【${D(source_payment).abs().toFixed(2)}】 系统计算【${D(payment).abs().toFixed(2)}】 差额：【${diff_alert_payment.toFixed(2)}】`,
+      );
+    }
+    if (is_alert_ads) {
+      msg.push(
+        `【广告差额 $${alert_ads_threshold} 预警】: 原始报表数据【${D(source_ads).abs().toFixed(2)}】 系统计算【${D(ads).abs().toFixed(2)}】 差额：【${diff_alert_ads.toFixed(2)}】`,
+      );
+    }
+    if (is_alert_storage) {
+      msg.push(
+        `【仓储差额 $${alert_storage_threshold} 预警】: 原始报表数据【${D(source_storage).abs().toFixed(2)}】 系统计算【${D(storage).abs().toFixed(2)}】 差额：【${diff_alert_storage.toFixed(2)}】`,
+      );
+    }
+
+    return msg;
+  }, [reportData, reportStatisticInfo, reportSourceData]);
+
   if (reportData.length === 0) {
     return null;
   }
@@ -1008,51 +1122,29 @@ function ReprotShow({
       <div className=" max-w-[75%] overflow-auto mt-5">
         <MetricCards data={metricCardData} callback={handleUsdCnyRateChange} />
       </div>
-      {isShowTotalPaymentCollectionErrorInfo && (
-        <div className="mt-5">
-          <Alert
-            title="总回款对比差额相差大于【15$】提示"
-            type="error"
-            showIcon
-            closable
-          />
+      {shouldTriggerAlarm && shouldTriggerAlarm.length > 0 && (
+        <div className="mt-5 flex flex-col gap-1">
+          {shouldTriggerAlarm.map((msg) => {
+            return <Alert title={msg} type="error" showIcon closable />;
+          })}
         </div>
       )}
       <div className=" flex justify-between items-center mt-5">
         <Tooltip title="点击快速跳转到列" color="#108ee9" placement="top">
           <div className=" inline-flex items-center gap-2 ">
-            <Button
-              type="dashed"
-              shape="round"
-              variant="dashed"
-              onClick={() => fastColumnGo("Cost_of_Advertising")}
-            >
-              基础广告费
-            </Button>
-            <Button
-              type="dashed"
-              shape="round"
-              variant="dashed"
-              onClick={() => fastColumnGo("StorageFee")}
-            >
-              仓储费
-            </Button>
-            <Button
-              type="dashed"
-              shape="round"
-              variant="dashed"
-              onClick={() => fastColumnGo("extra_payment_collection")}
-            >
-              回款
-            </Button>
-            <Button
-              type="dashed"
-              shape="round"
-              variant="dashed"
-              onClick={() => fastColumnGo("extra_rate_of_gross_profit")}
-            >
-              毛利率
-            </Button>
+            {FAST_COLUMN_KEY_LIST.map((col) => {
+              return (
+                <Button
+                  key={col?.dataIndex}
+                  type="dashed"
+                  shape="round"
+                  variant="dashed"
+                  onClick={() => fastColumnGo(col?.dataIndex as string)}
+                >
+                  {col?.title}
+                </Button>
+              );
+            })}
           </div>
         </Tooltip>
 

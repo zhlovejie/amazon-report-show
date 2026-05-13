@@ -449,3 +449,10 @@ export interface CategoryTableRow {
   gross_profit_rmb: string;
   gross_profit_doller: string;
 }
+
+
+export interface IReportSourceData{
+  payment:string;
+  ads:string;
+  storage:string;
+}

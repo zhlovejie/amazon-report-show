@@ -3,8 +3,8 @@ import Papa from "papaparse";
 import numbro from "numbro";
 import { CURRENCY_FORMATTER_OBJECT } from "@/types/common";
 // import { loadOrderByMock, loadStorageByMock } from "@/mockdata/test";
-import { Button, message, Spin } from "antd";
-import { CloseOutlined } from "@ant-design/icons";
+import { Button, message, Spin, Tag } from "antd";
+// import { CloseOutlined } from "@ant-design/icons";
 import { getAdsFromCache } from "@/utils/common";
 import type { CallbackPrams } from "@/types/common";
 import { cn } from "@/utils/classnames";
@@ -88,42 +88,87 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
     }
   }
 
-  function parseFile(
+  // 封装成一个通用的解析函数
+  const parseCsvWithDynamicHeader = (
     file: File | string,
     type: ReportFileType,
-  ): Promise<Array<any>> {
+  ): Promise<Array<any>> => {
     return new Promise((resolve, reject) => {
+      // 1. 第一步：探测表头位置 (使用 preview 模式只读前 20 行)
       Papa.parse(file, {
-        skipEmptyLines: true,
-        header: true,
-        transform: function (value, column) {
-          // 处理货币类型数据 例如：-1,013.48  去除逗号
-          let column_list = CURRENCY_FORMATTER_OBJECT[type] as string[];
+        preview: 20,
+        complete: (results) => {
+          // for order check :
+          const type_order_header_check_list = [
+            "date/time",
+            "settlement id",
+            "type",
+            "order id",
+            "sku",
+          ];
 
-          if (Array.isArray(column_list) && column_list.length > 0) {
-            let column_str = String(column).trim();
-            if (column_list.includes(column_str)) {
-              return String(numbro.unformat(value));
-            }
+          const type_storage_header_check_list = [
+            "asin",
+            "fnsku",
+            "product_name",
+          ];
+
+          const header_check_list =
+            type === "order"
+              ? type_order_header_check_list
+              : type_storage_header_check_list;
+
+          const rows = results.data;
+          // 关键点：寻找包含 "date/time" 的那一行索引
+          let headerIndex = rows.findIndex((row: any) => {
+            return header_check_list.every((cell) =>
+              row.includes(String(cell).trim().toLowerCase()),
+            );
+          });
+          if (headerIndex === -1) {
+            reject(
+              new Error(
+                `${type === "order" ? "【销售报表】" : "【仓储报表】"}格式错误，请检查`,
+              ),
+            );
+            return;
           }
-          return value;
-        },
-        complete: function ({ data, errors, meta }) {
-          console.log("解析完成.", data);
-          console.log("解析元数据", meta);
-          if (errors.length > 0) {
-            reject(new Error(errors[0].message));
-          } else {
-            resolve(data as Array<any>);
-          }
-        },
-        error: function (error) {
-          console.error(error);
-          reject(error);
+
+          // 如果没找到，默认从第 0 行开始
+          const skipRows = headerIndex === -1 ? 0 : headerIndex;
+
+          // 2. 第二步：执行正式解析
+          Papa.parse(file, {
+            skipEmptyLines: true,
+            header: true,
+            // 动态跳过说明文字
+            beforeFirstChunk: (chunk) => {
+              if (skipRows === 0) return chunk;
+              let lines = chunk.split(/\r\n|\r|\n/);
+              lines.splice(0, skipRows);
+              return lines.join("\n");
+            },
+            transform: function (value, column) {
+              // --- 保持你原有的货币转换逻辑 ---
+              let column_list = CURRENCY_FORMATTER_OBJECT[type] as string[];
+              if (Array.isArray(column_list) && column_list.length > 0) {
+                let column_str = String(column).trim();
+                if (column_list.includes(column_str)) {
+                  return String(numbro.unformat(value));
+                }
+              }
+              return value;
+            },
+            complete: ({ data }) => {
+              console.log(`成功定位表头（第 ${skipRows + 1} 行），解析完成。`);
+              resolve(data);
+            },
+            error: (err) => reject(err),
+          });
         },
       });
     });
-  }
+  };
 
   async function initFilesData() {
     // if (IS_TEST_MODEL) {
@@ -165,8 +210,14 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
 
       setSpinning(false);
       setSpinningDescription("");
-      const orderData = await parseFile(selectedOrderFile, "order");
-      const storageData = await parseFile(selectedStorageFile, "storage");
+      const orderData = await parseCsvWithDynamicHeader(
+        selectedOrderFile,
+        "order",
+      );
+      const storageData = await parseCsvWithDynamicHeader(
+        selectedStorageFile,
+        "storage",
+      );
       // console.log(orderData);
       // console.log(storageData);
 
@@ -180,8 +231,7 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
       setShowPanel(false);
     } catch (error) {
       if (error instanceof Error) {
-        message.error(`出错:${error.message}`);
-        console.error(error);
+        message.error(error.message);
 
         callback({
           status: "ok",
@@ -213,9 +263,9 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
         <div className="overflow-hidden">
           <div className="p-5 bg-red-50 rounded-md mt-2">
             <div className=" grid grid-cols-3 gap-5 mb-5">
-              <div className="flex justify-start items-start relative p-2 bg-white rounded-md shadow-md">
+              <div className="flex justify-start items-start relative bg-white rounded-md shadow-md">
                 {!fileInputOrderName && (
-                  <div className="w-[300px] h-[100px]">
+                  <div className="w-[300px] h-[100px] ">
                     <input
                       className=" opacity-0 absolute top-0 left-0 right-0 bottom-0 cursor-pointer"
                       ref={fileInputOrderRef}
@@ -231,21 +281,27 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
                   </div>
                 )}
                 {fileInputOrderName && (
-                  <div className="w-full h-[100px] flex items-center justify-center pointer-events-non">
-                    <span className=" break-all ">{fileInputOrderName}</span>
-                    <Button
-                      type="default"
-                      shape="circle"
-                      title="清除"
-                      style={{ position: "absolute", top: 5, right: 5 }}
-                      icon={<CloseOutlined />}
-                      onClick={() => handleFileRemove("order")}
-                    />
+                  <div className="w-full h-[100px] flex flex-col pointer-events-non">
+                    <div className="flex justify-between items-center py-1 px-2 shadow">
+                      <Tag variant="outlined" color="red">
+                        销售报表
+                      </Tag>
+                      <Button
+                        type="link"
+                        size="small"
+                        onClick={() => handleFileRemove("order")}
+                      >
+                        清除
+                      </Button>
+                    </div>
+                    <div className=" break-all flex-1 p-2 overflow-auto">
+                      {fileInputOrderName}
+                    </div>
                   </div>
                 )}
               </div>
 
-              <div className="flex justify-start items-start relative p-2 bg-white rounded-md shadow-md">
+              <div className="flex justify-start items-start relative bg-white rounded-md shadow-md">
                 {!fileInputStorageName && (
                   <div className="w-[300px] h-[100px]">
                     <input
@@ -263,22 +319,27 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
                   </div>
                 )}
                 {fileInputStorageName && (
-                  <div className="w-full h-[100px] flex items-center justify-center pointer-events-non">
-                    <span className=" break-all ">{fileInputStorageName}</span>
-
-                    <Button
-                      type="default"
-                      shape="circle"
-                      title="清除"
-                      style={{ position: "absolute", top: 5, right: 5 }}
-                      icon={<CloseOutlined />}
-                      onClick={() => handleFileRemove("storage")}
-                    />
+                  <div className="w-full h-[100px] flex flex-col pointer-events-non">
+                    <div className="flex justify-between items-center py-1 px-2 shadow">
+                      <Tag variant="outlined" color="red">
+                        仓储报表
+                      </Tag>
+                      <Button
+                        type="link"
+                        size="small"
+                        onClick={() => handleFileRemove("storage")}
+                      >
+                        清除
+                      </Button>
+                    </div>
+                    <div className=" break-all flex-1 p-2 overflow-auto">
+                      {fileInputStorageName}
+                    </div>
                   </div>
                 )}
               </div>
 
-              <div className="flex justify-start items-start relative p-2 bg-white rounded-md shadow-md">
+              <div className="flex justify-start items-start relative bg-white rounded-md shadow-md">
                 {!fileInputAdsName && (
                   <div className="w-[300px] h-[100px]">
                     <input
@@ -296,23 +357,28 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
                   </div>
                 )}
                 {fileInputAdsName && (
-                  <div className="w-full h-[100px] flex items-center justify-center pointer-events-non">
-                    <span className=" break-all ">{fileInputAdsName}</span>
-
-                    <Button
-                      type="default"
-                      shape="circle"
-                      title="清除"
-                      style={{ position: "absolute", top: 5, right: 5 }}
-                      icon={<CloseOutlined />}
-                      onClick={() => handleFileRemove("ads")}
-                    />
+                  <div className="w-full h-[100px] flex flex-col pointer-events-non">
+                    <div className="flex justify-between items-center py-1 px-2 shadow">
+                      <Tag variant="outlined" color="red">
+                        广告报表
+                      </Tag>
+                      <Button
+                        type="link"
+                        size="small"
+                        onClick={() => handleFileRemove("ads")}
+                      >
+                        清除
+                      </Button>
+                    </div>
+                    <div className=" break-all flex-1 p-2 overflow-auto">
+                      {fileInputAdsName}
+                    </div>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className=" flex items-center justify-between py-2 px-4">
+            <div className=" flex items-center justify-between">
               <div className=" w-1/2 m-auto">
                 <Button
                   type="dashed"

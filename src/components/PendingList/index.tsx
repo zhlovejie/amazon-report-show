@@ -1,5 +1,5 @@
 import type { ReprotItem } from "@/types/common";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useImmer } from "use-immer";
 import { cn } from "@/utils/classnames";
 import { Button, Select, Table, Tag, Modal, Badge } from "antd";
@@ -199,6 +199,10 @@ function PendingList({ data, skulist, className, callback }: PendingListProps) {
     }),
   );
 
+  const isPendingList = useMemo(() => {
+    return reportData.filter((item) => item.__status === "pending").length;
+  }, [reportData]);
+
   function handleSelectChange(value: string, rowIdx: number, attrName: string) {
     setReportData((draft) => {
       draft[rowIdx][attrName] = value;
@@ -279,18 +283,16 @@ function PendingList({ data, skulist, className, callback }: PendingListProps) {
         styles={stylesFn}
         title={() => {
           return (
-            <div className="flex items-center justify-between">
-              <div className=" flex items-center">
-                <span className="mr-2">待处理数据 </span>
-                <Badge
-                  showZero
-                  count={
-                    reportData.filter((item) => item.__status === "pending")
-                      .length
-                  }
-                />
-                <span className="ml-5">需要补充 SKU 后方可处理</span>
-              </div>
+            <div className="flex items-center ">
+              {isPendingList === 0 ? (
+                <span>已全部处理完成</span>
+              ) : (
+                <>
+                  <span className="mr-2">待处理数据 </span>
+                  <Badge showZero count={isPendingList} />
+                  <span className="ml-5">需要补充 SKU 后方可处理</span>
+                </>
+              )}
             </div>
           );
         }}

@@ -206,6 +206,12 @@ export const columnsSimpleList = [
     dataIndex: "Coupon_Redemption_Fee",
     title: "(旧)优惠券",
   },
+
+  {
+    dataIndex: "AdvertisingRate",
+    title: "广告占比",
+  },
+
   {
     dataIndex: "StorageFee",
     title: "仓储费",
@@ -264,7 +270,7 @@ export const columnsSimpleList = [
   },
   {
     title: "单个成本($)",
-    dataIndex: "extra_single_doller_cost_price"
+    dataIndex: "extra_single_doller_cost_price",
   },
   {
     title: "成本(RMB)",

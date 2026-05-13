@@ -120,16 +120,44 @@ function calc_extra_gross_profit(item: ReprotItem): ReprotItem {
  * 计算毛利、毛利率
  */
 function calc_extra_rate_gross_profit(item: ReprotItem): ReprotItem {
-  if(D(item.productSales).eq(0)){
+  if (D(item.productSales).eq(0)) {
     return {
       ...item,
       extra_rate_of_gross_profit: D(0).toFixed(2),
     };
-  }else{
+  } else {
     return {
       ...item,
       extra_rate_of_gross_profit: D(item.extra_gross_profit as string)
         .div(D(item.productSales))
+        .mul(100)
+        .toFixed(2),
+    };
+  }
+}
+
+/**
+ * 计算广告占比
+ */
+function calc_AdvertisingRate(item: ReprotItem): ReprotItem {
+  if (D(item.productSales).eq(0)) {
+    return {
+      ...item,
+      AdvertisingRate: D(0).toFixed(2),
+    };
+  } else {
+    const AdvertisingRate = D(item.Cost_of_Advertising as string)
+      .abs()
+      .add(D(item.Cost_of_Advertising_other as string).abs())
+      .add(D(item.Deal as string).abs())
+      .add(D(item.Vine_Enrollment_Fee as string).abs())
+      .add(D(item.Coupon_Performance_Based_Fee as string).abs())
+      .add(D(item.Coupon_Participation_Fee as string).abs())
+      .add(D(item.Coupon_Redemption_Fee as string).abs());
+
+    return {
+      ...item,
+      AdvertisingRate: AdvertisingRate.div(D(item.productSales))
         .mul(100)
         .toFixed(2),
     };
@@ -142,6 +170,7 @@ function calc_extra_rate_gross_profit(item: ReprotItem): ReprotItem {
 function runCalcPipeline(item: ReprotItem, rate: string | number): ReprotItem {
   return [
     calc_extra_payment_collection,
+    calc_AdvertisingRate,
     calc_extra_shipping_fee,
     calc_extra_single_cost_price,
     (i: ReprotItem) => calc_extra_single_doller_cost_price(i, rate), // ✅ 注入 rate
