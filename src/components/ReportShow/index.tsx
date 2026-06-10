@@ -1125,7 +1125,7 @@ function ReprotShow({
       {shouldTriggerAlarm && shouldTriggerAlarm.length > 0 && (
         <div className="mt-5 flex flex-col gap-1">
           {shouldTriggerAlarm.map((msg) => {
-            return <Alert title={msg} type="error" showIcon closable />;
+            return <Alert key={msg} title={msg} type="error" showIcon closable />;
           })}
         </div>
       )}

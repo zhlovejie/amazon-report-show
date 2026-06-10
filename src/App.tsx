@@ -1,6 +1,7 @@
 import LoadFileCsv from "@/components/loadFileCsv";
 import ReprotShow from "@/components/ReportShow";
 import PendingList from "./components/PendingList";
+import PageBackGuard from "./components/PageBackGuard"
 import type {
   CallbackPrams,
   ReprotItem,
@@ -65,6 +66,7 @@ function App() {
   return (
     <>
       <div className=" max-w-[80%] bg-white mx-auto my-5">
+        <PageBackGuard />
         <LoadFileCsv callback={csvDataCallback} />
         <ReprotShow
           data={reportList}

@@ -5,6 +5,8 @@ import { cn } from "@/utils/classnames";
 import { Button, Select, Table, Tag, Modal, Badge } from "antd";
 import type { TableProps } from "antd";
 import { SwapRightOutlined } from "@ant-design/icons";
+import _ from "lodash";
+import Decimal from "decimal.js";
 
 interface PendingListProps {
   data: Array<ReprotItem>;
@@ -248,6 +250,9 @@ function PendingList({ data, skulist, className, callback }: PendingListProps) {
     });
   }
 
+
+
+
   const stylesFn: TableProps<ReprotItem>["styles"] = () => {
     return {
       title: {
@@ -257,8 +262,31 @@ function PendingList({ data, skulist, className, callback }: PendingListProps) {
     };
   };
 
+
+  /**
+   * 对数据进行了预处理
+   * 例如 type = Fee Adjustment， 调整有很多条 ，每个需要单独处理很麻烦，多条相同的 total 相加成一条即可
+   * @param data 
+   * @returns 
+   */
+  function preFormatData(data:Array<ReprotItem>){
+    const result = _.chain(data)
+    .groupBy(item => `${item['settlement id']}_${item['type']}_${item['description']}`) // 按 settlement id+type+description 分组
+    .map(group => {
+      const first = group[0]
+      const totalValue = group.reduce(
+        (acc, item) => acc.plus(item.total || 0),
+        new Decimal(0)
+      ).toFixed(2);
+      return { ...first, total: totalValue };
+    })
+    .value();
+
+    return result
+  }
+
   useEffect(() => {
-    setReportData(data);
+    setReportData(preFormatData(data));
   }, [data]);
 
   useEffect(() => {
