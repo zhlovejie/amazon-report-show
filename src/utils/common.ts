@@ -241,6 +241,10 @@ export const columnsSimpleList = [
     title: "入库配置费",
   },
   {
+    title: "其它计算列",
+    dataIndex: "unallocated_value_other",
+  },
+  {
     title: "回款($)",
     dataIndex: "extra_payment_collection",
   },

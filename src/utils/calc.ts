@@ -1021,6 +1021,10 @@ class ReportCalc {
     reportSku["extra_rate_of_gross_profit"] = Decimal(0).toFixed(2);
     // 基础广告费其它
     reportSku["Cost_of_Advertising_other"] = Decimal(0).toFixed(2);
+
+    // 待处理数据组件中，没有合适的列分配，可以选择这个作为中转
+    reportSku["unallocated_value_other"] = Decimal(0).toFixed(2);
+    
   }
 
   /**

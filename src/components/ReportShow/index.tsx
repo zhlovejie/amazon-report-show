@@ -573,6 +573,18 @@ function ReprotShow({
         width: 160,
       },
       {
+        dataIndex: "unallocated_value_other",
+        title: () =>
+          renderTitle("其它计算列", "unallocated_value_other"),
+        render: (text: string, record: ReprotItem) =>
+          renderEditableCell(text, record, "unallocated_value_other"),
+        onHeaderCell: () => ({
+          style: { textAlign: "center", color: "#73726c" },
+        }),
+        align: "right",
+        width: 130,
+      },
+      {
         title: "回款($)",
         dataIndex: "extra_payment_collection",
         align: "right",

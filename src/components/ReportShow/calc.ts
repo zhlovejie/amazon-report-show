@@ -32,6 +32,7 @@ function calc_extra_payment_collection(item: ReprotItem): ReprotItem {
       .add(D(item.Liquidations as string))
       .add(D(item.Order_Retrocharge as string))
       .add(D(item.FBA_Inbound_Placement_Service_Fee as string))
+      .add(D(item.unallocated_value_other as string))
       .toFixed(2),
   };
 }

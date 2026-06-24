@@ -190,6 +190,11 @@ function PendingList({ data, skulist, className, callback }: PendingListProps) {
       label: "入库配置费($)",
       value: "FBA_Inbound_Placement_Service_Fee",
     },
+
+    {
+      label: "其它计算列",
+      value: "unallocated_value_other"
+    }
   ]);
 
   const [skuListSelect, setSkuListSelect] = useState(
