@@ -1,5 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import ReactMarkdown from "react-markdown";
+import type {
+  CSSProperties,
+  KeyboardEvent,
+} from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
@@ -7,16 +11,55 @@ import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
 // ─── 配置 ────────────────────────────────────────────────────────────
 const BASE_URL = "http://139.196.209.52:8008";
 
+type ChatRole = "user" | "assistant";
+
+interface ChatMessage {
+  role: ChatRole;
+  content: string;
+  _key?: string;
+}
+
+interface SourceDocument {
+  url?: string;
+  title?: string;
+  sourceId?: string;
+  rank?: number | null;
+  [key: string]: unknown;
+}
+
+interface Conversation {
+  id: string;
+  name: string;
+  messages: ChatMessage[];
+  sources: Record<string, SourceDocument[]>;
+}
+
+type ChatHistoryMessage = Pick<ChatMessage, "role" | "content">;
+
+type StreamEvent =
+  | { type: "text-delta"; delta: string }
+  | ({ type: "source-document" } & SourceDocument)
+  | { type: "error"; errorText: string };
+
 // ─── 工具函数 ─────────────────────────────────────────────────────────
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
-function createConv(name = "新对话") {
+function createConv(name = "新对话"): Conversation {
   return { id: genId(), name, messages: [], sources: {} };
 }
 
+function loadConversations(): Conversation[] {
+  try {
+    const saved = JSON.parse(localStorage.getItem("rag_convs") || "[]");
+    return Array.isArray(saved) && saved.length ? saved : [createConv()];
+  } catch {
+    return [createConv()];
+  }
+}
+
 // ─── SVG 图标 ─────────────────────────────────────────────────────────
-const Icon = ({ d, size = 16 }) => (
+const Icon = ({ d, size = 16 }: { d: string; size?: number }) => (
   <svg
     width={size} height={size} viewBox="0 0 24 24"
     fill="none" stroke="currentColor"
@@ -53,7 +96,13 @@ function TypingDots() {
 }
 
 // ─── 代码块（带复制按钮）────────────────────────────────────────────────
-function CodeBlock({ language, value }) {
+function CodeBlock({
+  language,
+  value,
+}: {
+  language?: string;
+  value: string;
+}) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
     navigator.clipboard.writeText(value).then(() => {
@@ -95,19 +144,21 @@ function CodeBlock({ language, value }) {
 }
 
 // ─── Markdown 渲染器 ──────────────────────────────────────────────────
-const mdComponents = {
+const mdComponents: Components = {
   // 代码块 / 行内代码
-  code({ node, inline, className, children, ...props }) {
+  code({ className, children, ...props }) {
     const language = /language-(\w+)/.exec(className || "")?.[1];
     const value = String(children).replace(/\n$/, "");
-    if (!inline && (language || value.includes("\n"))) {
+    if (language || value.includes("\n")) {
       return <CodeBlock language={language} value={value} />;
     }
+    const codeProps = { ...props };
+    delete (codeProps as { node?: unknown }).node;
     return (
       <code style={{
         background: "#f0f0ef", borderRadius: 4, padding: "1px 5px",
         fontSize: "0.88em", fontFamily: "monospace", color: "#c0392b",
-      }} {...props}>
+      }} {...codeProps}>
         {children}
       </code>
     );
@@ -164,7 +215,7 @@ const mdComponents = {
   em({ children }) { return <em style={{ fontStyle: "italic" }}>{children}</em>; },
 };
 
-function MarkdownContent({ content }) {
+function MarkdownContent({ content }: { content: string }) {
   return (
     <div style={{ fontSize: 14, lineHeight: 1.7, color: "#1a1a1a", minWidth: 0 }}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
@@ -175,7 +226,7 @@ function MarkdownContent({ content }) {
 }
 
 // ─── 复制按钮 ──────────────────────────────────────────────────────────
-function CopyButton({ text }) {
+function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = () => {
     navigator.clipboard.writeText(text).then(() => {
@@ -191,20 +242,14 @@ function CopyButton({ text }) {
   );
 }
 
-// ─── 来源标签 ──────────────────────────────────────────────────────────
-function SourceTag({ src }) {
-  const isWeb = !!src.url;
-  const raw = src.title || src.sourceId || "";
-  const label = raw.replace(/^\[\d+\]\s*(本地|网络)?[：:]\s*/u, "");
-  const short = label.length > 26 ? label.slice(0, 24) + "…" : label;
-  const tagStyle = { ...s.sourceTag, ...(isWeb ? s.sourceTagWeb : s.sourceTagLocal) };
-  return isWeb
-    ? <a href={src.url} target="_blank" rel="noreferrer" style={tagStyle} title={src.title || src.url}>🌐 {short}</a>
-    : <span style={tagStyle} title={src.sourceId}>📄 {short}</span>;
-}
-
 // ─── 单条消息 ──────────────────────────────────────────────────────────
-function Message({ msg, sources, isStreaming }) {
+function Message({
+  msg,
+  isStreaming,
+}: {
+  msg: ChatMessage;
+  isStreaming: boolean;
+}) {
   const isUser = msg.role === "user";
   const isAI   = msg.role === "assistant";
 
@@ -240,10 +285,22 @@ function Message({ msg, sources, isStreaming }) {
 }
 
 // ─── 对话条目 ──────────────────────────────────────────────────────────
-function ConvItem({ conv, active, onSelect, onDelete, onRename }) {
+function ConvItem({
+  conv,
+  active,
+  onSelect,
+  onDelete,
+  onRename,
+}: {
+  conv: Conversation;
+  active: boolean;
+  onSelect: (id: string) => void;
+  onDelete: (id: string) => void;
+  onRename: (id: string, name: string) => void;
+}) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft]     = useState(conv.name);
-  const inputRef = useRef(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
 
@@ -281,22 +338,14 @@ function ConvItem({ conv, active, onSelect, onDelete, onRename }) {
 
 // ─── 主组件 ───────────────────────────────────────────────────────────
 export default function RagChat() {
-  const [convs, setConvs] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("rag_convs") || "[]");
-      return saved.length ? saved : [createConv()];
-    } catch { return [createConv()]; }
-  });
-  const [activeId, setActiveId] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem("rag_convs") || "[]");
-      return saved[0]?.id ?? null;
-    } catch { return null; }
-  });
+  const [convs, setConvs] = useState<Conversation[]>(loadConversations);
+  const [activeId, setActiveId] = useState<string | null>(
+    () => convs[0]?.id ?? null,
+  );
   const [input, setInput]       = useState("");
   const [streaming, setStreaming] = useState(false);
-  const msgEndRef  = useRef(null);
-  const textareaRef = useRef(null);
+  const msgEndRef  = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     localStorage.setItem("rag_convs", JSON.stringify(convs));
@@ -322,7 +371,7 @@ export default function RagChat() {
     setTimeout(() => textareaRef.current?.focus(), 50);
   }, []);
 
-  const deleteConv = useCallback((id) => {
+  const deleteConv = useCallback((id: string) => {
     setConvs((prev) => {
       const next = prev.filter((c) => c.id !== id);
       if (!next.length) { const f = createConv(); setActiveId(f.id); return [f]; }
@@ -331,11 +380,11 @@ export default function RagChat() {
     });
   }, [activeId]);
 
-  const renameConv = useCallback((id, name) => {
+  const renameConv = useCallback((id: string, name: string) => {
     setConvs((prev) => prev.map((c) => c.id === id ? { ...c, name } : c));
   }, []);
 
-  const updateActive = useCallback((updater) => {
+  const updateActive = useCallback((updater: (conv: Conversation) => Conversation) => {
     setConvs((prev) => prev.map((c) => c.id === activeId ? updater(c) : c));
   }, [activeId]);
 
@@ -343,9 +392,16 @@ export default function RagChat() {
     const q = input.trim();
     if (!q || streaming || !activeConv) return;
 
-    const history  = activeConv.messages.map(({ role, content }) => ({ role, content }));
-    const userMsg  = { role: "user", content: q };
-    const aiKey    = genId();
+    const history: ChatHistoryMessage[] = activeConv.messages.map(
+      ({ role, content }) => ({ role, content }),
+    );
+    const userMsg: ChatMessage = { role: "user", content: q };
+    const aiKey = genId();
+    const assistantMsg: ChatMessage = {
+      role: "assistant",
+      content: "",
+      _key: aiKey,
+    };
     const autoName =
       activeConv.name === "新对话" && !activeConv.messages.length
         ? q.slice(0, 20) + (q.length > 20 ? "…" : "")
@@ -353,7 +409,7 @@ export default function RagChat() {
 
     updateActive((c) => ({
       ...c, name: autoName,
-      messages: [...c.messages, userMsg, { role: "assistant", content: "", _key: aiKey }],
+      messages: [...c.messages, userMsg, assistantMsg],
       sources: { ...c.sources, [aiKey]: [] },
     }));
     setInput("");
@@ -385,7 +441,7 @@ export default function RagChat() {
           const raw = line.slice(6);
           if (raw === "[DONE]") break;
           try {
-            const ev = JSON.parse(raw);
+            const ev = JSON.parse(raw) as StreamEvent;
             if (ev.type === "text-delta") {
               updateActive((c) => ({
                 ...c,
@@ -410,11 +466,12 @@ export default function RagChat() {
                 ),
               }));
             }
-          } catch (_) {}
+          } catch {}
         }
       }
     } catch (err) {
-      if (err.name !== "AbortError") {
+      const isAbortError = err instanceof Error && err.name === "AbortError";
+      if (!isAbortError) {
         updateActive((c) => ({
           ...c,
           messages: c.messages.map((m) =>
@@ -427,12 +484,11 @@ export default function RagChat() {
     }
   }, [input, streaming, activeConv, updateActive]);
 
-  const handleKeyDown = (e) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
   const msgs = activeConv?.messages ?? [];
-  const srcs = activeConv?.sources ?? {};
 
   return (
     <>
@@ -474,7 +530,6 @@ export default function RagChat() {
                   <Message
                     key={m._key || i}
                     msg={m}
-                    sources={m._key ? srcs[m._key] : undefined}
                     isStreaming={streaming && m.role === "assistant" && i === msgs.length - 1}
                   />
                 ))
@@ -507,14 +562,39 @@ export default function RagChat() {
 }
 
 // ─── 样式 ─────────────────────────────────────────────────────────────
-const s = {
+const s: {
+  root: CSSProperties;
+  sidebar: CSSProperties;
+  sidebarHeader: CSSProperties;
+  sidebarTitle: CSSProperties;
+  newBtn: CSSProperties;
+  convList: CSSProperties;
+  convItem: (active: boolean) => CSSProperties;
+  convName: CSSProperties;
+  renameInput: CSSProperties;
+  convActions: CSSProperties;
+  iconBtn: CSSProperties;
+  main: CSSProperties;
+  msgArea: CSSProperties;
+  empty: CSSProperties;
+  msgRow: (isUser: boolean) => CSSProperties;
+  avatar: (isAI: boolean) => CSSProperties;
+  bubbleWrap: (isUser: boolean) => CSSProperties;
+  bubble: (isAI: boolean) => CSSProperties;
+  bubbleFooter: CSSProperties;
+  copyBtn: (copied: boolean) => CSSProperties;
+  inputBar: CSSProperties;
+  inputWrap: CSSProperties;
+  textarea: CSSProperties;
+  sendBtn: (disabled: boolean) => CSSProperties;
+} = {
   root: { display: "flex", height: "100%", fontFamily: "system-ui,-apple-system,sans-serif", background: "#fff", overflow: "hidden" },
   sidebar: { width: 240, minWidth: 240, borderRight: "1px solid #e5e5e5", display: "flex", flexDirection: "column", background: "#f9f9f8" },
   sidebarHeader: { padding: "14px 12px 10px", borderBottom: "1px solid #e5e5e5", display: "flex", alignItems: "center", justifyContent: "space-between" },
   sidebarTitle: { fontSize: 12, fontWeight: 500, color: "#888", letterSpacing: "0.04em", textTransform: "uppercase" },
   newBtn: { display: "flex", alignItems: "center", gap: 4, background: "#fff", border: "1px solid #ddd", borderRadius: 8, padding: "4px 10px", fontSize: 12, cursor: "pointer", color: "#333", fontFamily: "inherit" },
   convList: { flex: 1, overflowY: "auto", padding: 8 },
-  convItem: (active) => ({ display: "flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, cursor: "pointer", marginBottom: 2, background: active ? "#fff" : "transparent", border: active ? "1px solid #e0e0e0" : "1px solid transparent", transition: "background 0.1s", color: "#555" }),
+  convItem: (active:boolean) => ({ display: "flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 8, cursor: "pointer", marginBottom: 2, background: active ? "#fff" : "transparent", border: active ? "1px solid #e0e0e0" : "1px solid transparent", transition: "background 0.1s", color: "#555" }),
   convName: { flex: 1, fontSize: 13, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", color: "#222" },
   renameInput: { flex: 1, background: "none", border: "none", outline: "none", fontSize: 13, color: "#222", fontFamily: "inherit", padding: 0 },
   convActions: { display: "flex", gap: 2 },
@@ -522,18 +602,14 @@ const s = {
   main: { flex: 1, display: "flex", flexDirection: "column", minWidth: 0, background: "#fff" },
   msgArea: { flex: 1, overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 },
   empty: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", color: "#bbb" },
-  msgRow: (isUser) => ({ display: "flex", flexDirection: isUser ? "row-reverse" : "row", gap: 12, alignItems: "flex-start" }),
-  avatar: (isAI) => ({ width: 30, height: 30, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 500, flexShrink: 0, background: isAI ? "#e8f0fe" : "#f0f0f0", color: isAI ? "#3b5bdb" : "#666", border: isAI ? "none" : "1px solid #e0e0e0" }),
-  bubbleWrap: (isUser) => ({ maxWidth: "78%", display: "flex", flexDirection: "column", gap: 4, alignItems: isUser ? "flex-end" : "flex-start", minWidth: 0 }),
-  bubble: (isAI) => ({ padding: "10px 14px", borderRadius: isAI ? "4px 14px 14px 14px" : "14px 4px 14px 14px", lineHeight: 1.65, background: isAI ? "#f5f5f4" : "#3b5bdb", color: isAI ? "#1a1a1a" : "#fff", border: isAI ? "1px solid #ebebeb" : "none", maxWidth: "100%", minWidth: 0, overflowX: "auto" }),
+  msgRow: (isUser:boolean) => ({ display: "flex", flexDirection: isUser ? "row-reverse" : "row", gap: 12, alignItems: "flex-start" }),
+  avatar: (isAI:boolean) => ({ width: 30, height: 30, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 500, flexShrink: 0, background: isAI ? "#e8f0fe" : "#f0f0f0", color: isAI ? "#3b5bdb" : "#666", border: isAI ? "none" : "1px solid #e0e0e0" }),
+  bubbleWrap: (isUser:boolean) => ({ maxWidth: "78%", display: "flex", flexDirection: "column", gap: 4, alignItems: isUser ? "flex-end" : "flex-start", minWidth: 0 }),
+  bubble: (isAI:boolean) => ({ padding: "10px 14px", borderRadius: isAI ? "4px 14px 14px 14px" : "14px 4px 14px 14px", lineHeight: 1.65, background: isAI ? "#f5f5f4" : "#3b5bdb", color: isAI ? "#1a1a1a" : "#fff", border: isAI ? "1px solid #ebebeb" : "none", maxWidth: "100%", minWidth: 0, overflowX: "auto" }),
   bubbleFooter: { display: "flex", alignItems: "center", gap: 4, paddingLeft: 2 },
-  copyBtn: (copied) => ({ display: "flex", alignItems: "center", gap: 3, background: "none", border: "none", cursor: "pointer", padding: "2px 6px", borderRadius: 4, fontSize: 11, color: copied ? "#2f9e44" : "#aaa", fontFamily: "inherit", transition: "color 0.1s" }),
-  sourceList: { display: "flex", flexWrap: "wrap", gap: 4, marginTop: 2 },
-  sourceTag: { fontSize: 11, padding: "2px 8px", borderRadius: 999, textDecoration: "none", display: "inline-block", cursor: "pointer" },
-  sourceTagWeb: { background: "#e8f0fe", color: "#1a56db", border: "1px solid #c3d5fb" },
-  sourceTagLocal: { background: "#fff8e1", color: "#b35a00", border: "1px solid #fde08d" },
+  copyBtn: (copied:boolean) => ({ display: "flex", alignItems: "center", gap: 3, background: "none", border: "none", cursor: "pointer", padding: "2px 6px", borderRadius: 4, fontSize: 11, color: copied ? "#2f9e44" : "#aaa", fontFamily: "inherit", transition: "color 0.1s" }),
   inputBar: { padding: "12px 16px", borderTop: "1px solid #e5e5e5", display: "flex", gap: 8, alignItems: "flex-end", background: "#fff" },
   inputWrap: { flex: 1, border: "1px solid #ddd", borderRadius: 12, overflow: "hidden", background: "#fff" },
   textarea: { width: "100%", resize: "none", border: "none", outline: "none", padding: "10px 12px", fontSize: 14, fontFamily: "inherit", background: "transparent", color: "#1a1a1a", maxHeight: 120, lineHeight: 1.5, display: "block" },
-  sendBtn: (disabled) => ({ background: disabled ? "#ccc" : "#3b5bdb", color: "#fff", border: "none", borderRadius: 10, width: 38, height: 38, cursor: disabled ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.15s" }),
+  sendBtn: (disabled:boolean) => ({ background: disabled ? "#ccc" : "#3b5bdb", color: "#fff", border: "none", borderRadius: 10, width: 38, height: 38, cursor: disabled ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.15s" }),
 };
