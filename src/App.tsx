@@ -6,18 +6,18 @@ import RagChat from "./components/RgaAmazonChat"
 import { Button, Drawer } from "antd";
 import { RobotOutlined } from "@ant-design/icons";
 import type {
-  CallbackPrams,
-  ReprotItem,
+  CallbackParams,
+  ReportItem,
   IReportSourceData,
 } from "@/types/common";
 import { ReportCalc } from "@/utils/calc";
 import { useMemo, useState } from "react";
 
 function App() {
-  const [reportList, setReportList] = useState<Array<ReprotItem>>([]);
-  const [pendingList, setPendingList] = useState<Array<ReprotItem>>([]);
+  const [reportList, setReportList] = useState<Array<ReportItem>>([]);
+  const [pendingList, setPendingList] = useState<Array<ReportItem>>([]);
   const [ragChatOpen, setRagChatOpen] = useState(false);
-  const [pendingRepairList, setPendingRepairList] = useState<Array<ReprotItem>>(
+  const [pendingRepairList, setPendingRepairList] = useState<Array<ReportItem>>(
     [],
   );
 
@@ -35,35 +35,27 @@ function App() {
   //sku 列表
   //
 
-  function csvDataCallback({
-    status,
-    message,
-    orderData,
-    storageData,
-    adsData,
-  }: CallbackPrams) {
-    if (status === "error") {
-      console.error(message);
+  function csvDataCallback(params: CallbackParams) {
+    if (params.status === "error") {
+      console.error(params.message);
       return;
     }
-    let ReportCalcInstance = null;
-    if (status === "ok") {
-      if (orderData && storageData) {
-        ReportCalcInstance = new ReportCalc({ orderData, storageData });
+    const ReportCalcInstance = new ReportCalc({
+      orderData: params.orderData,
+      storageData: params.storageData,
+    });
 
-        ReportCalcInstance.init();
-        if (adsData) {
-          ReportCalcInstance.initCalcAds(adsData);
-        }
-
-        setReportList(ReportCalcInstance.getReportList());
-        setPendingList(ReportCalcInstance.getPendingList());
-        setReportSourceData(ReportCalcInstance.getSourceData());
-      }
+    ReportCalcInstance.init();
+    if (params.adsData) {
+      ReportCalcInstance.initCalcAds(params.adsData);
     }
+
+    setReportList(ReportCalcInstance.getReportList());
+    setPendingList(ReportCalcInstance.getPendingList());
+    setReportSourceData(ReportCalcInstance.getSourceData());
   }
 
-  function handlePendingRepairList(dataList: Array<ReprotItem>) {
+  function handlePendingRepairList(dataList: Array<ReportItem>) {
     setPendingRepairList(dataList);
   }
 

@@ -1,5 +1,9 @@
-import type { ReprotItem } from "@/types/common";
+﻿import type { ReportItem } from "@/types/common";
 import { useEffect, useMemo, useState } from "react";
+import type {
+  PendingRepairFields,
+  ReportItemCalculatedFields,
+} from "@/types/common";
 import { useImmer } from "use-immer";
 import { cn } from "@/utils/classnames";
 import { Button, Select, Table, Tag, Modal, Badge } from "antd";
@@ -9,17 +13,17 @@ import _ from "lodash";
 import Decimal from "decimal.js";
 
 interface PendingListProps {
-  data: Array<ReprotItem>;
+  data: Array<ReportItem>;
   skulist: Array<string>;
-  callback: (data: Array<ReprotItem>) => void;
+  callback: (data: Array<ReportItem>) => void;
   className?: string;
 }
 
 const { warning } = Modal;
 
 function PendingList({ data, skulist, className, callback }: PendingListProps) {
-  const [reportData, setReportData] = useImmer<Array<ReprotItem>>([]);
-  const columns: TableProps<ReprotItem>["columns"] = [
+  const [reportData, setReportData] = useImmer<Array<ReportItem>>([]);
+  const columns: TableProps<ReportItem>["columns"] = [
     {
       key: "__order__",
       title: "序号",
@@ -210,13 +214,21 @@ function PendingList({ data, skulist, className, callback }: PendingListProps) {
     return reportData.filter((item) => item.__status === "pending").length;
   }, [reportData]);
 
-  function handleSelectChange(value: string, rowIdx: number, attrName: string) {
+  function handleSelectChange(
+    value: string,
+    rowIdx: number,
+    attrName: "sku" | keyof PendingRepairFields,
+  ) {
     setReportData((draft) => {
-      draft[rowIdx][attrName] = value;
+      if (attrName === "sku") {
+        draft[rowIdx].sku = value;
+      } else {
+        draft[rowIdx].__target__ = value as keyof ReportItemCalculatedFields;
+      }
     });
   }
 
-  function handleRepairAll(record?: ReprotItem) {
+  function handleRepairAll(record?: ReportItem) {
     let __pendingList = record
       ? [record]
       : reportData.filter((item) => item.__status === "pending");
@@ -258,7 +270,7 @@ function PendingList({ data, skulist, className, callback }: PendingListProps) {
 
 
 
-  const stylesFn: TableProps<ReprotItem>["styles"] = () => {
+  const stylesFn: TableProps<ReportItem>["styles"] = () => {
     return {
       title: {
         backgroundColor: "#f6eedf",
@@ -274,7 +286,7 @@ function PendingList({ data, skulist, className, callback }: PendingListProps) {
    * @param data 
    * @returns 
    */
-  function preFormatData(data:Array<ReprotItem>){
+  function preFormatData(data:Array<ReportItem>){
     const result = _.chain(data)
     .groupBy(item => `${item['settlement id']}_${item['type']}_${item['description']}`) // 按 settlement id+type+description 分组
     .map(group => {
@@ -311,7 +323,7 @@ function PendingList({ data, skulist, className, callback }: PendingListProps) {
 
   return (
     <div className={cn("w-full overflow-auto", className)}>
-      <Table<ReprotItem>
+      <Table<ReportItem>
         scroll={{ x: "max-content" }}
         styles={stylesFn}
         title={() => {

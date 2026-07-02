@@ -1,5 +1,6 @@
-import type {
-  ReprotItem,
+﻿import type {
+  ReportItem,
+  ReportItemCalculatedFields,
   CategoryTableRow,
   IReportSourceData,
 } from "@/types/common";
@@ -38,11 +39,21 @@ import { runCalcPipeline, calcTotalFromSnapshot } from "./calc";
 import { TableSummaryRow } from "@/components/TableSummaryRow";
 
 interface ReprotShowProps {
-  data: Array<ReprotItem>;
-  repairDataList: Array<ReprotItem>;
+  data: Array<ReportItem>;
+  repairDataList: Array<ReportItem>;
   className?: string;
   reportSourceData: IReportSourceData;
 }
+
+type EditableReportField = keyof ReportItemCalculatedFields;
+type SummaryReportField = keyof Pick<
+  ReportItemCalculatedFields,
+  | "Cost_of_Advertising"
+  | "Cost_of_Advertising_other"
+  | "StorageFee"
+  | "extra_payment_collection"
+  | "extra_gross_profit"
+>;
 
 // 配置显示列功能-------------------------
 // ✅ 提到组件外部，只计算一次
@@ -74,16 +85,16 @@ function ReprotShow({
   reportSourceData,
 }: ReprotShowProps) {
   const tableRef = useRef<TableRef>(null);
-  const [reportData, setReportData] = useImmer<Array<ReprotItem>>([]);
+  const [reportData, setReportData] = useImmer<Array<ReportItem>>([]);
 
   const [categtoryProductData, setCategtoryProductData] = useImmer<
     Array<CategoryTableRow>
   >([]);
 
   // 记录鼠标移动到当前row
-  const [currentRow, setCurrentRow] = useState<ReprotItem>();
+  const [currentRow, setCurrentRow] = useState<ReportItem>();
   // 记录当前处于编辑状态的列名（dataIndex）
-  const [editingColumn, setEditingColumn] = useState<keyof ReprotItem | null>(
+  const [editingColumn, setEditingColumn] = useState<EditableReportField | null>(
     null,
   );
   // 暂存该列所有行的修改：{ rowKey: newValue }
@@ -92,7 +103,7 @@ function ReprotShow({
   );
 
   // 1. 开启某一列的编辑
-  const startEditColumn = (field: keyof ReprotItem) => {
+  const startEditColumn = (field: EditableReportField) => {
     const initTemp: Record<string, string> = {};
     reportData.forEach((item) => {
       initTemp[item.__key] = item[field] as string; // 拷贝当前列数据到临时状态
@@ -127,7 +138,7 @@ function ReprotShow({
   };
 
   // 渲染列标题的通用函数
-  const renderTitle = (title: string, field: keyof ReprotItem) => (
+  const renderTitle = (title: string, field: EditableReportField) => (
     <div
       style={{
         display: "flex",
@@ -161,7 +172,7 @@ function ReprotShow({
 
   const renderEditableCell = (
     text: string,
-    record: ReprotItem,
+    record: ReportItem,
     columnKey: string,
   ) => {
     return editingColumn === columnKey ? (
@@ -182,7 +193,7 @@ function ReprotShow({
     );
   };
 
-  const columns = useMemo<ColumnsType<ReprotItem>>(() => {
+  const columns = useMemo<ColumnsType<ReportItem>>(() => {
     return [
       {
         title: "名称",
@@ -240,7 +251,7 @@ function ReprotShow({
         onHeaderCell: () => ({
           style: { color: "#73726c" },
         }),
-        render: (text: string, record: ReprotItem) => {
+        render: (text: string, record: ReportItem) => {
           let isCurrentRow = currentRow && currentRow.__key === record.__key;
           return (
             <div className=" relative flex items-center justify-between">
@@ -394,7 +405,7 @@ function ReprotShow({
       {
         dataIndex: "Adjustment",
         title: () => renderTitle("清算", "Adjustment"),
-        render: (text: string, record: ReprotItem) =>
+        render: (text: string, record: ReportItem) =>
           renderEditableCell(text, record, "Adjustment"),
         onHeaderCell: () => ({
           style: { textAlign: "center", color: "#73726c" },
@@ -405,7 +416,7 @@ function ReprotShow({
       {
         dataIndex: "Cost_of_Advertising",
         title: () => renderTitle("基础广告费", "Cost_of_Advertising"),
-        render: (text: string, record: ReprotItem) =>
+        render: (text: string, record: ReportItem) =>
           renderEditableCell(text, record, "Cost_of_Advertising"),
         onHeaderCell: () => ({
           style: { textAlign: "center", color: "#73726c" },
@@ -416,7 +427,7 @@ function ReprotShow({
       {
         dataIndex: "Cost_of_Advertising_other",
         title: () => renderTitle("基础广告费其它", "Cost_of_Advertising_other"),
-        render: (text: string, record: ReprotItem) =>
+        render: (text: string, record: ReportItem) =>
           renderEditableCell(text, record, "Cost_of_Advertising_other"),
         onHeaderCell: () => ({
           style: { textAlign: "center", color: "#73726c" },
@@ -427,7 +438,7 @@ function ReprotShow({
       {
         dataIndex: "Deal",
         title: () => renderTitle("秒杀费", "Deal"),
-        render: (text: string, record: ReprotItem) =>
+        render: (text: string, record: ReportItem) =>
           renderEditableCell(text, record, "Deal"),
         onHeaderCell: () => ({
           style: { textAlign: "center", color: "#73726c" },
@@ -438,7 +449,7 @@ function ReprotShow({
       {
         dataIndex: "Vine_Enrollment_Fee",
         title: () => renderTitle("Vine", "Vine_Enrollment_Fee"),
-        render: (text: string, record: ReprotItem) =>
+        render: (text: string, record: ReportItem) =>
           renderEditableCell(text, record, "Vine_Enrollment_Fee"),
         onHeaderCell: () => ({
           style: { textAlign: "center", color: "#73726c" },
@@ -450,7 +461,7 @@ function ReprotShow({
         dataIndex: "Coupon_Performance_Based_Fee",
         title: () =>
           renderTitle("(新)优惠券绩效费", "Coupon_Performance_Based_Fee"),
-        render: (text: string, record: ReprotItem) =>
+        render: (text: string, record: ReportItem) =>
           renderEditableCell(text, record, "Coupon_Performance_Based_Fee"),
         onHeaderCell: () => ({
           style: { textAlign: "center", color: "#73726c" },
@@ -462,7 +473,7 @@ function ReprotShow({
         dataIndex: "Coupon_Participation_Fee",
         title: () =>
           renderTitle("(新)优惠券参与费", "Coupon_Participation_Fee"),
-        render: (text: string, record: ReprotItem) =>
+        render: (text: string, record: ReportItem) =>
           renderEditableCell(text, record, "Coupon_Participation_Fee"),
         onHeaderCell: () => ({
           style: { textAlign: "center", color: "#73726c" },
@@ -473,7 +484,7 @@ function ReprotShow({
       {
         dataIndex: "Coupon_Redemption_Fee",
         title: () => renderTitle("(旧)优惠券", "Coupon_Redemption_Fee"),
-        render: (text: string, record: ReprotItem) =>
+        render: (text: string, record: ReportItem) =>
           renderEditableCell(text, record, "Coupon_Redemption_Fee"),
         onHeaderCell: () => ({
           style: { textAlign: "center", color: "#73726c" },
@@ -503,7 +514,7 @@ function ReprotShow({
       {
         dataIndex: "StorageFee",
         title: () => renderTitle("仓储费", "StorageFee"),
-        render: (text: string, record: ReprotItem) =>
+        render: (text: string, record: ReportItem) =>
           renderEditableCell(text, record, "StorageFee"),
         onHeaderCell: () => ({
           style: { textAlign: "center", color: "#73726c" },
@@ -515,7 +526,7 @@ function ReprotShow({
       {
         dataIndex: "Disposal_Fee",
         title: () => renderTitle("FBA移除订单-弃置费", "Disposal_Fee"),
-        render: (text: string, record: ReprotItem) =>
+        render: (text: string, record: ReportItem) =>
           renderEditableCell(text, record, "Disposal_Fee"),
         onHeaderCell: () => ({
           style: { textAlign: "center", color: "#73726c" },
@@ -527,7 +538,7 @@ function ReprotShow({
       {
         dataIndex: "FBA_Transaction_fees",
         title: () => renderTitle("FBA交易费用", "FBA_Transaction_fees"),
-        render: (text: string, record: ReprotItem) =>
+        render: (text: string, record: ReportItem) =>
           renderEditableCell(text, record, "FBA_Transaction_fees"),
         onHeaderCell: () => ({
           style: { textAlign: "center", color: "#73726c" },
@@ -539,7 +550,7 @@ function ReprotShow({
       {
         dataIndex: "Liquidations",
         title: () => renderTitle("清货", "Liquidations"),
-        render: (text: string, record: ReprotItem) =>
+        render: (text: string, record: ReportItem) =>
           renderEditableCell(text, record, "Liquidations"),
         onHeaderCell: () => ({
           style: { textAlign: "center", color: "#73726c" },
@@ -551,7 +562,7 @@ function ReprotShow({
       {
         dataIndex: "Order_Retrocharge",
         title: () => renderTitle("订单退款撤销", "Order_Retrocharge"),
-        render: (text: string, record: ReprotItem) =>
+        render: (text: string, record: ReportItem) =>
           renderEditableCell(text, record, "Order_Retrocharge"),
         onHeaderCell: () => ({
           style: { textAlign: "center", color: "#73726c" },
@@ -564,7 +575,7 @@ function ReprotShow({
         dataIndex: "FBA_Inbound_Placement_Service_Fee",
         title: () =>
           renderTitle("入库配置费", "FBA_Inbound_Placement_Service_Fee"),
-        render: (text: string, record: ReprotItem) =>
+        render: (text: string, record: ReportItem) =>
           renderEditableCell(text, record, "FBA_Inbound_Placement_Service_Fee"),
         onHeaderCell: () => ({
           style: { textAlign: "center", color: "#73726c" },
@@ -576,7 +587,7 @@ function ReprotShow({
         dataIndex: "unallocated_value_other",
         title: () =>
           renderTitle("其它计算列", "unallocated_value_other"),
-        render: (text: string, record: ReprotItem) =>
+        render: (text: string, record: ReportItem) =>
           renderEditableCell(text, record, "unallocated_value_other"),
         onHeaderCell: () => ({
           style: { textAlign: "center", color: "#73726c" },
@@ -608,7 +619,7 @@ function ReprotShow({
       {
         dataIndex: "extra_purchase_price",
         title: () => renderTitle("进价(RMB)", "extra_purchase_price"),
-        render: (text: string, record: ReprotItem) =>
+        render: (text: string, record: ReportItem) =>
           renderEditableCell(text, record, "extra_purchase_price"),
         align: "right",
         // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
@@ -620,7 +631,7 @@ function ReprotShow({
       {
         dataIndex: "extra_weight",
         title: () => renderTitle("重量(g)", "extra_weight"),
-        render: (text: string, record: ReprotItem) =>
+        render: (text: string, record: ReportItem) =>
           renderEditableCell(text, record, "extra_weight"),
         align: "right",
         // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
@@ -632,7 +643,7 @@ function ReprotShow({
       {
         dataIndex: "extra_inside_express_price",
         title: () => renderTitle("国内物流(RMB)", "extra_inside_express_price"),
-        render: (text: string, record: ReprotItem) =>
+        render: (text: string, record: ReportItem) =>
           renderEditableCell(text, record, "extra_inside_express_price"),
         align: "right",
         // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
@@ -644,7 +655,7 @@ function ReprotShow({
       {
         dataIndex: "extra_shipping_price",
         title: () => renderTitle("海运报价(RMB)", "extra_shipping_price"),
-        render: (text: string, record: ReprotItem) =>
+        render: (text: string, record: ReportItem) =>
           renderEditableCell(text, record, "extra_shipping_price"),
         align: "right",
         // 2. 专门对表头单元格（th）进行样式覆盖，实现居中
@@ -656,7 +667,7 @@ function ReprotShow({
       {
         dataIndex: "extra_shipping_fee",
         title: () => renderTitle("海运费(RMB)", "extra_shipping_fee"),
-        render: (text: string, record: ReprotItem) => {
+        render: (text: string, record: ReportItem) => {
           return renderEditableCell(text, record, "extra_shipping_fee");
         },
         align: "right",
@@ -799,7 +810,7 @@ function ReprotShow({
         ...col,
         key: col.dataIndex,
       };
-    }) as ColumnsType<ReprotItem>;
+    }) as ColumnsType<ReportItem>;
   }, [editingColumn, tempColumnData, currentRow]);
 
   const [checkedList, setCheckedList] = useState(DEFAULT_CHECKED_LIST);
@@ -930,6 +941,7 @@ function ReprotShow({
     const data = reportData.map((item) => {
       let rowData = headersList
         .map((h) => {
+          const key = h.key as keyof ReportItem;
           // 这些列需要添加 百分号
           let addRateKeyList = [
             "refundRate",
@@ -937,15 +949,15 @@ function ReprotShow({
             "extra_rate_of_gross_profit",
           ];
           return addRateKeyList.includes(h.key)
-            ? `${item[h.key]} %`
-            : item[h.key];
+            ? `${item[key]} %`
+            : item[key];
         })
         .join("\t");
       return rowData;
     });
 
     // 复制底部汇总数据
-    const keyList = [
+    const keyList: SummaryReportField[] = [
       "Cost_of_Advertising",
       "Cost_of_Advertising_other",
       "StorageFee",
@@ -964,7 +976,7 @@ function ReprotShow({
 
     const summary = currentShowColumnsList
       ?.map((h, idx) => {
-        let cell = summaryObj[h.key as keyof ReprotItem] || "-";
+        let cell = summaryObj[h.key as keyof ReportItem] || "-";
         return idx === 0 ? "汇总统计" : cell.value;
       })
       .join("\t");
@@ -1200,7 +1212,7 @@ function ReprotShow({
           dataSource={reportData}
           summary={(pageData) => {
             // 汇总统计 基础广告费、基础广告费其他、仓储费、回款、毛利润
-            const keyList = [
+            const keyList: SummaryReportField[] = [
               "Cost_of_Advertising",
               "Cost_of_Advertising_other",
               "StorageFee",

@@ -1,4 +1,4 @@
-import type { ReprotItem, CategoryTableRow } from "@/types/common";
+﻿import type { ReportItem, CategoryTableRow } from "@/types/common";
 import Decimal from "decimal.js";
 // ============================================================
 // 第一步：把所有计算函数提到组件外部，接收 rate 作为显式参数
@@ -10,7 +10,7 @@ const D = (val: string | number | undefined) => new Decimal(val || 0);
 /**
  * 计算回款
  */
-function calc_extra_payment_collection(item: ReprotItem): ReprotItem {
+function calc_extra_payment_collection(item: ReportItem): ReportItem {
   return {
     ...item,
     extra_payment_collection: D(item.productSales as string)
@@ -40,7 +40,7 @@ function calc_extra_payment_collection(item: ReprotItem): ReprotItem {
 /**
  * 计算海运费
  */
-function calc_extra_shipping_fee(item: ReprotItem): ReprotItem {
+function calc_extra_shipping_fee(item: ReportItem): ReportItem {
   return {
     ...item,
     extra_shipping_fee: D(item.extra_weight as string)
@@ -53,7 +53,7 @@ function calc_extra_shipping_fee(item: ReprotItem): ReprotItem {
 /**
  * 计算单个成本RMB
  */
-function calc_extra_single_cost_price(item: ReprotItem): ReprotItem {
+function calc_extra_single_cost_price(item: ReportItem): ReportItem {
   return {
     ...item,
     extra_single_cost_price: D(item.extra_purchase_price as string)
@@ -67,9 +67,9 @@ function calc_extra_single_cost_price(item: ReprotItem): ReprotItem {
  * 计算单个成本美元 关键：rate 作为显式参数，不再从闭包捕获
  */
 function calc_extra_single_doller_cost_price(
-  item: ReprotItem,
+  item: ReportItem,
   rate: string | number,
-): ReprotItem {
+): ReportItem {
   return {
     ...item,
     extra_single_doller_cost_price: D(item.extra_single_cost_price as string)
@@ -81,11 +81,11 @@ function calc_extra_single_doller_cost_price(
 /**
  * 计算总成本RMB
  */
-function calc_extra_rmb_cost(item: ReprotItem): ReprotItem {
+function calc_extra_rmb_cost(item: ReportItem): ReportItem {
   return {
     ...item,
     extra_rmb_cost: D(item.extra_single_cost_price as string)
-      .mul(D(item.qty as number))
+      .mul(D(item.qty))
       .toFixed(2),
   };
 }
@@ -94,9 +94,9 @@ function calc_extra_rmb_cost(item: ReprotItem): ReprotItem {
  * 计算总成本美元 关键：rate 作为显式参数
  */
 function calc_extra_doller_cost(
-  item: ReprotItem,
+  item: ReportItem,
   rate: string | number,
-): ReprotItem {
+): ReportItem {
   return {
     ...item,
     extra_doller_cost: D(item.extra_rmb_cost as string)
@@ -108,7 +108,7 @@ function calc_extra_doller_cost(
 /**
  * 计算毛利
  */
-function calc_extra_gross_profit(item: ReprotItem): ReprotItem {
+function calc_extra_gross_profit(item: ReportItem): ReportItem {
   return {
     ...item,
     extra_gross_profit: D(item.extra_payment_collection as string)
@@ -120,7 +120,7 @@ function calc_extra_gross_profit(item: ReprotItem): ReprotItem {
 /**
  * 计算毛利、毛利率
  */
-function calc_extra_rate_gross_profit(item: ReprotItem): ReprotItem {
+function calc_extra_rate_gross_profit(item: ReportItem): ReportItem {
   if (D(item.productSales).eq(0)) {
     return {
       ...item,
@@ -140,7 +140,7 @@ function calc_extra_rate_gross_profit(item: ReprotItem): ReprotItem {
 /**
  * 计算广告占比
  */
-function calc_AdvertisingRate(item: ReprotItem): ReprotItem {
+function calc_AdvertisingRate(item: ReportItem): ReportItem {
   if (D(item.productSales).eq(0)) {
     return {
       ...item,
@@ -168,15 +168,15 @@ function calc_AdvertisingRate(item: ReprotItem): ReprotItem {
 // ============================================================
 // 工具函数：对单条 item 跑完整计算链，rate 显式传入
 // ============================================================
-function runCalcPipeline(item: ReprotItem, rate: string | number): ReprotItem {
+function runCalcPipeline(item: ReportItem, rate: string | number): ReportItem {
   return [
     calc_extra_payment_collection,
     calc_AdvertisingRate,
     calc_extra_shipping_fee,
     calc_extra_single_cost_price,
-    (i: ReprotItem) => calc_extra_single_doller_cost_price(i, rate), // ✅ 注入 rate
+    (i: ReportItem) => calc_extra_single_doller_cost_price(i, rate), // ✅ 注入 rate
     calc_extra_rmb_cost,
-    (i: ReprotItem) => calc_extra_doller_cost(i, rate), // ✅ 注入 rate
+    (i: ReportItem) => calc_extra_doller_cost(i, rate), // ✅ 注入 rate
     calc_extra_gross_profit,
     calc_extra_rate_gross_profit,
   ].reduce((acc, fn) => fn(acc), { ...item });
@@ -194,7 +194,7 @@ interface CalcTotalResult {
 }
 
 function calcTotalFromSnapshot(
-  snapshot: ReprotItem[],
+  snapshot: ReportItem[],
   rate: string | number,
 ): CalcTotalResult {
   let n1 = D(0),

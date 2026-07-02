@@ -1,10 +1,10 @@
-import _ from "lodash";
+﻿import _ from "lodash";
 import Decimal from "decimal.js";
 import type {
   OrderHeaderKeyTypeObject,
   StorageHeaderKeyTypeObject,
   ReportObjectType,
-  ReprotItem,
+  ReportItem,
   ReportCalcConstructorParams,
   AdvertisingBillData,
 } from "@/types/common";
@@ -195,15 +195,19 @@ class ReportCalc {
   constructor({ orderData, storageData }: ReportCalcConstructorParams) {
     this.orderData = orderData
       .map((o, idx) => {
-        o.__status = "pending";
-        o.__key = idx + 1;
-        return o;
+        return {
+          ...o,
+          __status: "pending" as const,
+          __key: idx + 1,
+        };
       })
       .filter((o) => o.type !== "Transfer");
     this.storageData = storageData.map((o, idx) => {
-      o.__status = "pending";
-      o.__key = idx + 1;
-      return o;
+      return {
+        ...o,
+        __status: "pending" as const,
+        __key: idx + 1,
+      };
     });
 
     this.__orderDataCache = JSON.parse(JSON.stringify(orderData));
@@ -216,14 +220,14 @@ class ReportCalc {
 
   getReportList() {
     let that = this;
-    let arr: Array<ReprotItem> = [];
+    let arr: Array<ReportItem> = [];
     that.skuList.map((sku, idx) => {
       let target = that.report[sku];
       arr.push({
         ...target,
         sku,
         __key: idx + 1,
-      } as ReprotItem);
+      } as ReportItem);
     });
     return arr.sort((n1, n2) => {
       return n1.__no - n2.__no;
@@ -236,7 +240,7 @@ class ReportCalc {
       .filter((o) => o.__status === "pending")
       .sort((n1, n2) =>
         n1.type > n2.type ? 1 : -1,
-      ) as unknown as Array<ReprotItem>;
+      ) as unknown as Array<ReportItem>;
   }
 
   // 计算总回款  除去type = Transfer 之外的 total的汇总
@@ -400,7 +404,7 @@ class ReportCalc {
       return initVal.add(Decimal(item.quantity));
     }, Decimal(0));
 
-    const reportItem = that.report[sku] as ReprotItem;
+    const reportItem = that.report[sku] as ReportItem;
 
     reportItem["qty"] = qty.toFixed(0);
 
@@ -482,7 +486,7 @@ class ReportCalc {
       return initVal.add(item.total);
     }, Decimal(0));
 
-    const reportItem = that.report[sku] as ReprotItem;
+    const reportItem = that.report[sku] as ReportItem;
 
     reportItem["refund"] = refundAmount.toFixed(2);
 
@@ -529,7 +533,7 @@ class ReportCalc {
         item.sku === sku && item.type.toLowerCase().trim() === "adjustment",
     );
 
-    const reportItem = that.report[sku] as ReprotItem;
+    const reportItem = that.report[sku] as ReportItem;
 
     //  退款金额
     let adjustmentAmount = adjustmentTypeList.reduce((initVal, item) => {
@@ -564,7 +568,7 @@ class ReportCalc {
     // if(sku === 'hook01'){
     //   debugger
     // }
-    const reportItem = that.report[sku] as ReprotItem;
+    const reportItem = that.report[sku] as ReportItem;
 
     let target = that.productList.find((item) => item.__sku === sku);
 

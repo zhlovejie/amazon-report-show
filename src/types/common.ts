@@ -1,4 +1,4 @@
-
+﻿
 /**
  * 销售报表字段说明
  */
@@ -309,12 +309,12 @@ export const CURRENCY_FORMATTER_OBJECT = {
   'order':['quantity','product sales','selling fees','fba fees','other transaction fees','other','total'],
   'storage':['estimated_monthly_storage_fee'],
   'ads':[]
-}
+} as const;
 
 
 // 工具类型：获取对象所有值的某个属性的联合类型
 type ValueOfProperty<
-  T extends Record<string, Record<string, any>>,
+  T extends Record<string, Record<string, unknown>>,
   P extends string
 > = {
   [K in keyof T]: T[K][P];
@@ -330,52 +330,145 @@ type StorageHeaderKeyType = ValueOfProperty<
   "key"
 >;
 
-export type OrderHeaderKeyTypeObject = {
-  [K in OrderHeaderKeyType]: string;
-}&{
-  __status:'pending' | 'done';
-  __key:number | string;
+export type ReportFileType = keyof typeof CURRENCY_FORMATTER_OBJECT;
+
+type RowStatus = 'pending' | 'done';
+
+type RowMeta = {
+  __status: RowStatus;
+  __key: number | string;
 };
 
-export type StorageHeaderKeyTypeObject = {
-  [K in StorageHeaderKeyType]: string;
-}&{
-  __status:'pending' | 'done';
-  __key:number | string;
+type CsvStringRow<K extends string> = {
+  [P in K]: string;
 };
+
+export type RawOrderRow = CsvStringRow<OrderHeaderKeyType>;
+
+export type RawStorageRow = CsvStringRow<StorageHeaderKeyType>;
+
+export type OrderHeaderKeyTypeObject = RawOrderRow & RowMeta;
+
+export type StorageHeaderKeyTypeObject = RawStorageRow & RowMeta;
 
 export type ReportCalcConstructorParams = {
-  orderData: Array<OrderHeaderKeyTypeObject>;
-  storageData: Array<StorageHeaderKeyTypeObject>;
+  orderData: Array<RawOrderRow>;
+  storageData: Array<RawStorageRow>;
 };
 
-type ReprotItemKnowKeys = {
+type OrderReportKnownKeys = {
   -readonly [K in keyof typeof ORDER_HEADER_KEYS_OBJECT]?: string;
 };
 
-export type ReprotItem = ReprotItemKnowKeys & {
-   "__no":number,
+export type ReportItemCalculatedFields = {
+  qty?: string;
+  productSales?: string;
+  sellingFees?: string;
+  fbaFees?: string;
+  others?: string;
+  refund?: string;
+  refundQty?: string;
+  refundRate?: string;
+  Adjustment?: string;
+  Cost_of_Advertising?: string;
+  Cost_of_Advertising_other?: string;
+  Deal?: string;
+  Vine_Enrollment_Fee?: string;
+  Coupon_Performance_Based_Fee?: string;
+  Coupon_Participation_Fee?: string;
+  Coupon_Redemption_Fee?: string;
+  AdvertisingRate?: string;
+  StorageFee?: string;
+  Disposal_Fee?: string;
+  FBA_Transaction_fees?: string;
+  Liquidations?: string;
+  Order_Retrocharge?: string;
+  FBA_Inbound_Placement_Service_Fee?: string;
+  unallocated_value_other?: string;
+  extra_payment_collection?: string;
+  extra_purchase_price?: string;
+  extra_weight?: string;
+  extra_inside_express_price?: string;
+  extra_shipping_price?: string;
+  extra_shipping_fee?: string;
+  extra_single_cost_price?: string;
+  extra_single_doller_cost_price?: string;
+  extra_rmb_cost?: string;
+  extra_doller_cost?: string;
+  extra_gross_profit?: string;
+  extra_rate_of_gross_profit?: string;
+};
+
+export type PendingRepairFields = {
+  __target__?: keyof ReportItemCalculatedFields;
+};
+
+export type ReportItem = OrderReportKnownKeys &
+  ReportItemCalculatedFields &
+  PendingRepairFields & {
+    "__no":number,
     "__name": string,
     "__fnsku": string,
     "__asin": string,
     "__sku": string,
+    sku: string;
+    total?: string;
+    type?: string;
+    description?: string;
+    "settlement id"?: string;
+    "order id"?: string;
+    "__category"?: string;
     "__key":number | string;
     "__editStatus"?:"edit" | "save" | "cancel";
-    "__status":'pending' | 'done';
-    [key: string]: string | number | boolean | undefined  // 直接在这里添加索引签名
+    "__status": RowStatus;
+  };
+
+export type ReportObjectType = Partial<Record<string, Partial<ReportItem>>>;
+
+export type CallbackParams =
+  | {
+      status: "ok";
+      orderData: Array<RawOrderRow>;
+      storageData: Array<RawStorageRow>;
+      adsData?: AdvertisingBillData;
+      message?: string;
+    }
+  | {
+      status: "error";
+      message: string;
+    };
+
+/**
+ * @deprecated Use `ReportItem`.
+ */
+export type ReprotItem = ReportItem;
+
+/**
+ * @deprecated Use `CallbackParams`.
+ */
+export type CallbackPrams = CallbackParams;
+
+/**
+ * @deprecated Use `OrderHeaderKeyTypeObject` for rows after metadata is attached,
+ * or `RawOrderRow` for parsed CSV rows.
+ */
+export type OrderHeaderKeyTypeObjectLegacy = {
+  [K in OrderHeaderKeyType]: string;
+} & {
+  __status:'pending' | 'done';
+  __key:number | string;
 };
 
-export type ReportObjectType = {
-  [key: string]: ReprotItem | {};
+/**
+ * @deprecated Use `StorageHeaderKeyTypeObject` for rows after metadata is attached,
+ * or `RawStorageRow` for parsed CSV rows.
+ */
+export type StorageHeaderKeyTypeObjectLegacy = {
+  [K in StorageHeaderKeyType]: string;
+} & {
+  __status:'pending' | 'done';
+  __key:number | string;
 };
-
-export type CallbackPrams = {
-  status: "ok" | "error";
-  message?:string;
-  orderData?:Array<any>;
-  storageData?:Array<any>;
-  adsData?:AdvertisingBillData
-}
 
 
 

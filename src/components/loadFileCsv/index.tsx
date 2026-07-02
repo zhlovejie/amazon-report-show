@@ -6,13 +6,22 @@ import { CURRENCY_FORMATTER_OBJECT } from "@/types/common";
 import { Button, message, Spin, Tag } from "antd";
 // import { CloseOutlined } from "@ant-design/icons";
 import { getAdsFromCache } from "@/utils/common";
-import type { CallbackPrams } from "@/types/common";
+import type {
+  CallbackParams,
+  RawOrderRow,
+  RawStorageRow,
+  ReportFileType,
+  ResultAdvertisingBillData,
+} from "@/types/common";
 import { cn } from "@/utils/classnames";
 type LoadFileCsvProps = {
-  callback: (params: CallbackPrams) => void;
+  callback: (params: CallbackParams) => void;
 };
 
-type ReportFileType = "order" | "storage" | "ads";
+type CsvReportFileType = Exclude<ReportFileType, "ads">;
+type ParsedCsvRow<T extends CsvReportFileType> = T extends "order"
+  ? RawOrderRow
+  : RawStorageRow;
 
 /**
  * 上传文件，返回解析csv数据
@@ -89,10 +98,10 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
   }
 
   // 封装成一个通用的解析函数
-  const parseCsvWithDynamicHeader = (
+  function parseCsvWithDynamicHeader<T extends CsvReportFileType>(
     file: File | string,
-    type: ReportFileType,
-  ): Promise<Array<any>> => {
+    type: T,
+  ): Promise<Array<ParsedCsvRow<T>>> {
     return new Promise((resolve, reject) => {
       // 1. 第一步：探测表头位置 (使用 preview 模式只读前 20 行)
       Papa.parse(file, {
@@ -120,9 +129,10 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
 
           const rows = results.data;
           // 关键点：寻找包含 "date/time" 的那一行索引
-          let headerIndex = rows.findIndex((row: any) => {
+          const headerIndex = rows.findIndex((row) => {
+            const cells = Array.isArray(row) ? row.map(String) : [];
             return header_check_list.every((cell) =>
-              row.includes(String(cell).trim().toLowerCase()),
+              cells.includes(String(cell).trim().toLowerCase()),
             );
           });
           if (headerIndex === -1) {
@@ -150,10 +160,10 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
             },
             transform: function (value, column) {
               // --- 保持你原有的货币转换逻辑 ---
-              let column_list = CURRENCY_FORMATTER_OBJECT[type] as string[];
+              const column_list = CURRENCY_FORMATTER_OBJECT[type];
               if (Array.isArray(column_list) && column_list.length > 0) {
-                let column_str = String(column).trim();
-                if (column_list.includes(column_str)) {
+                const column_str = String(column).trim();
+                if ((column_list as readonly string[]).includes(column_str)) {
                   return String(numbro.unformat(value));
                 }
               }
@@ -161,14 +171,14 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
             },
             complete: ({ data }) => {
               console.log(`成功定位表头（第 ${skipRows + 1} 行），解析完成。`);
-              resolve(data);
+              resolve(data as Array<ParsedCsvRow<T>>);
             },
             error: (err) => reject(err),
           });
         },
       });
     });
-  };
+  }
 
   async function initFilesData() {
     // if (IS_TEST_MODEL) {
@@ -204,7 +214,7 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
         setSpinning(true);
         setSpinningDescription("广告报表处理中...");
       }
-      const adsData = selectedAdsFile
+      const adsData: ResultAdvertisingBillData | Record<string, never> = selectedAdsFile
         ? await getAdsFromCache(selectedAdsFile)
         : {};
 
@@ -225,7 +235,7 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
         status: "ok",
         orderData,
         storageData,
-        adsData: adsData?.data as any,
+        adsData: "data" in adsData ? adsData.data ?? undefined : undefined,
       });
 
       setShowPanel(false);
@@ -234,7 +244,7 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
         message.error(error.message);
 
         callback({
-          status: "ok",
+          status: "error",
           message: error.message,
         });
       }
