@@ -293,3 +293,38 @@ export const columnsSimpleList = [
     dataIndex: "extra_rate_of_gross_profit",
   },
 ];
+
+
+export function parseCurrencyInput(raw:string) {
+  let s = raw.trim();
+  if (!s) return '';
+
+  // 1. 检测负号：开头 -，结尾 -，或任意位置的一对括号包裹数字部分
+  const hasLeadingMinus = s.startsWith('-');
+  const hasTrailingMinus = /-\s*$/.test(s) && !hasLeadingMinus;
+  const hasParenNegative = /\(.*\)/.test(s); // 不要求锚定在整串开头结尾
+  const neg = hasLeadingMinus || hasTrailingMinus || hasParenNegative;
+
+  // 2. 去掉货币符号、括号、空格、正负号
+  s = s.replace(/[^\d.,]/g, '');
+
+  // 3. 判断千分位/小数点风格（简单启发式：最后一个 , 或 . 视为小数点）
+  const lastComma = s.lastIndexOf(',');
+  const lastDot = s.lastIndexOf('.');
+  if (lastComma > lastDot) {
+    // 欧式：, 是小数点，. 是千分位
+    s = s.replace(/\./g, '').replace(',', '.');
+  } else {
+    // 美式：, 是千分位，. 是小数点
+    s = s.replace(/,/g, '');
+  }
+
+  // 4. 只保留第一个小数点
+  const firstDot = s.indexOf('.');
+  if (firstDot !== -1) {
+    s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, '');
+  }
+
+  if (!s || s === '.') return '';
+  return (neg ? '-' : '') + s;
+}

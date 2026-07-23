@@ -32,6 +32,7 @@ import {
   columnsSimpleList,
   copyToClipboard,
   calcSummaryData,
+  parseCurrencyInput,
 } from "@/utils/common";
 
 import { runCalcPipeline, calcTotalFromSnapshot } from "./calc";
@@ -59,7 +60,7 @@ type SummaryReportField = keyof Pick<
 // ✅ 提到组件外部，只计算一次
 const DEFAULT_CHECKED_LIST = columnsSimpleList
   .map((item) => item.dataIndex)
-  .filter((key) => !["__fnsku", "__asin", "sku"].includes(key));
+  .filter((key) => !["__fnsku", "__asin", "sku", "Cost_of_Advertising_other"].includes(key));
 
 const CHECKBOX_OPTIONS = columnsSimpleList.map(({ dataIndex, title }) => ({
   label: title,
@@ -143,10 +144,13 @@ function ReprotShow({
       style={{
         display: "flex",
         justifyContent: "space-between",
-        alignItems: "center",
+        alignItems: "center"
       }}
     >
-      <span>{title}</span>
+      <Tooltip title={title} color="#108ee9">
+        <span className=" w-0.5 flex-1 truncate">{title}</span>
+      </Tooltip>
+      
       {editingColumn === field ? (
         <Space size={4}>
           <Typography.Link onClick={saveColumn}>
@@ -182,7 +186,7 @@ function ReprotShow({
         onChange={(e) =>
           setTempColumnData({
             ...tempColumnData,
-            [record.__key]: e.target.value,
+            [record.__key]: parseCurrencyInput(e.target.value) || '0.00'
           })
         }
       />
@@ -467,7 +471,7 @@ function ReprotShow({
           style: { textAlign: "center", color: "#73726c" },
         }),
         align: "right",
-        width: 200,
+        width: 120,
       },
       {
         dataIndex: "Coupon_Participation_Fee",
@@ -479,7 +483,7 @@ function ReprotShow({
           style: { textAlign: "center", color: "#73726c" },
         }),
         align: "right",
-        width: 200,
+        width: 120,
       },
       {
         dataIndex: "Coupon_Redemption_Fee",
