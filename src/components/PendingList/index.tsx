@@ -214,6 +214,14 @@ function PendingList({ data, skulist, className, callback }: PendingListProps) {
     return reportData.filter((item) => item.__status === "pending").length;
   }, [reportData]);
 
+  /** 待处理数据的总金额（汇总所有 pending 行的 total 绝对值） */
+  const pendingTotalAmount = useMemo(() => {
+    const total = reportData
+      .filter((item) => item.__status === "pending")
+      .reduce((acc, cur) => acc.add(Decimal(cur.total ?? 0).abs()), new Decimal(0));
+    return total.toFixed(2);
+  }, [reportData]);
+
   function handleSelectChange(
     value: string,
     rowIdx: number,
@@ -335,7 +343,10 @@ function PendingList({ data, skulist, className, callback }: PendingListProps) {
                 <>
                   <span className="mr-2">待处理数据 </span>
                   <Badge showZero count={isPendingList} />
-                  <span className="ml-5">需要补充 SKU 后方可处理</span>
+                  <span className="ml-5">
+                    待处理总金额: ${pendingTotalAmount}
+                  </span>
+                  <span className="ml-4">需要补充 SKU 后方可处理</span>
                 </>
               )}
             </div>

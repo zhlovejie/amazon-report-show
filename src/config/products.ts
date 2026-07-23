@@ -1,8 +1,4 @@
-import type {
-  ProductConfig,
-  RawOrderRow,
-  RawStorageRow,
-} from "@/types/common";
+import type { ProductConfig, RawOrderRow, RawStorageRow } from "@/types/common";
 
 export interface UnrecognizedProductReference {
   source: "order" | "storage";
@@ -107,11 +103,29 @@ export const DEFAULT_PRODUCT_LIST: ProductConfig[] = [
   },
   {
     __no: 7,
+    __name: "T18-双黑",
+    __fnsku: "X0051YWC8T",
+    __asin: "B0GVB2KCGZ",
+    __sku: "T-tie-blk002",
+    __ads: [],
+    __coupon: [],
+    __default_extra_purchase_price: "14",
+    __default_extra_weight: "340",
+    __default_extra_inside_express_price: "0.3",
+    __default_extra_shipping_price: "7",
+    __category: "T18",
+  },
+
+  {
+    __no: 8,
     __name: "双14墙挂黑",
     __fnsku: "X004DAC1AV",
     __asin: "B0DDXB7T2H",
     __sku: "tie-wall-02black",
-    __ads: ["2Pack Wall Mounted Tie Rack Black", "墙挂14钩-手动-tie wall closet"],
+    __ads: [
+      "2Pack Wall Mounted Tie Rack Black",
+      "墙挂14钩-手动-tie wall closet",
+    ],
     __coupon: [],
     __default_extra_purchase_price: "14.5",
     __default_extra_weight: "370",
@@ -120,7 +134,7 @@ export const DEFAULT_PRODUCT_LIST: ProductConfig[] = [
     __category: "墙14",
   },
   {
-    __no: 8,
+    __no: 9,
     __name: "双14墙挂白",
     __fnsku: "X004DA8SY9",
     __asin: "B0DDX41KTY",
@@ -151,16 +165,24 @@ function normalizeProduct(value: unknown, index: number): ProductConfig | null {
   if (!sku || !name) return null;
 
   return {
-    __no: Number.isFinite(Number(product.__no)) ? Number(product.__no) : index + 1,
+    __no: Number.isFinite(Number(product.__no))
+      ? Number(product.__no)
+      : index + 1,
     __name: name,
     __fnsku: String(product.__fnsku ?? "").trim(),
     __asin: String(product.__asin ?? "").trim(),
     __sku: sku,
     __ads: Array.isArray(product.__ads)
-      ? product.__ads.map(String).map((item) => item.trim()).filter(Boolean)
+      ? product.__ads
+          .map(String)
+          .map((item) => item.trim())
+          .filter(Boolean)
       : [],
     __coupon: Array.isArray(product.__coupon)
-      ? product.__coupon.map(String).map((item) => item.trim()).filter(Boolean)
+      ? product.__coupon
+          .map(String)
+          .map((item) => item.trim())
+          .filter(Boolean)
       : [],
     __default_extra_purchase_price: String(
       product.__default_extra_purchase_price ?? "0",
@@ -190,7 +212,9 @@ export function loadProductList(): ProductConfig[] {
     const normalized = parsed
       .map(normalizeProduct)
       .filter((product): product is ProductConfig => product !== null);
-    const savedBySku = new Map(normalized.map((product) => [product.__sku, product]));
+    const savedBySku = new Map(
+      normalized.map((product) => [product.__sku, product]),
+    );
     const defaultSkus = new Set(defaults.map((product) => product.__sku));
 
     // 按分类分组：同分类产品排在一起，分类内按 __no 排序
@@ -209,7 +233,10 @@ export function loadProductList(): ProductConfig[] {
 }
 
 export function saveProductList(products: ProductConfig[]) {
-  window.localStorage.setItem(PRODUCT_LIST_STORAGE_KEY, JSON.stringify(products));
+  window.localStorage.setItem(
+    PRODUCT_LIST_STORAGE_KEY,
+    JSON.stringify(products),
+  );
 }
 
 export function isDefaultProduct(sku: string) {
@@ -226,7 +253,9 @@ export function findUnrecognizedProducts(
   storageData: Array<Pick<RawStorageRow, "fnsku">>,
   products: ProductConfig[],
 ) {
-  const configuredSkus = new Set(products.map((product) => product.__sku.trim()));
+  const configuredSkus = new Set(
+    products.map((product) => product.__sku.trim()),
+  );
   const configuredFnskus = new Set(
     products.map((product) => product.__fnsku.trim()).filter(Boolean),
   );
