@@ -3,20 +3,32 @@ import ReprotShow from "@/components/ReportShow";
 import PendingList from "./components/PendingList";
 import PageBackGuard from "./components/PageBackGuard"
 import RagChat from "./components/RgaAmazonChat"
-import { Button, Drawer } from "antd";
+import ProductConfigManager from "./components/ProductConfigManager";
+import { Button, Drawer, message } from "antd";
 import { RobotOutlined } from "@ant-design/icons";
 import type {
   CallbackParams,
   ReportItem,
   IReportSourceData,
+  ProductConfig,
 } from "@/types/common";
 import { ReportCalc } from "@/utils/calc";
 import { useMemo, useState } from "react";
+import {
+  loadProductList,
+  saveProductList,
+  type UnrecognizedProductReference,
+} from "@/config/products";
 
 function App() {
   const [reportList, setReportList] = useState<Array<ReportItem>>([]);
   const [pendingList, setPendingList] = useState<Array<ReportItem>>([]);
   const [ragChatOpen, setRagChatOpen] = useState(false);
+  const [productConfigOpen, setProductConfigOpen] = useState(false);
+  const [productList, setProductList] = useState<ProductConfig[]>(loadProductList);
+  const [unrecognizedProducts, setUnrecognizedProducts] = useState<
+    UnrecognizedProductReference[]
+  >([]);
   const [pendingRepairList, setPendingRepairList] = useState<Array<ReportItem>>(
     [],
   );
@@ -43,6 +55,7 @@ function App() {
     const ReportCalcInstance = new ReportCalc({
       orderData: params.orderData,
       storageData: params.storageData,
+      productList,
     });
 
     ReportCalcInstance.init();
@@ -57,6 +70,31 @@ function App() {
 
   function handlePendingRepairList(dataList: Array<ReportItem>) {
     setPendingRepairList(dataList);
+  }
+
+  function handleUnrecognizedProducts(products: UnrecognizedProductReference[]) {
+    setUnrecognizedProducts(products);
+    if (products.length > 0) {
+      setProductConfigOpen(true);
+    }
+  }
+
+  function handleProductListChange(nextProducts: ProductConfig[]) {
+    try {
+      saveProductList(nextProducts);
+      setProductList(nextProducts);
+      setUnrecognizedProducts((current) =>
+        current.filter(
+          (reference) =>
+            !nextProducts.some(
+              (product) => product[reference.field] === reference.value,
+            ),
+        ),
+      );
+    } catch {
+      message.error("产品配置保存失败，请检查浏览器存储权限");
+      throw new Error("Unable to save product configuration");
+    }
   }
 
   return (
@@ -94,9 +132,23 @@ function App() {
         <RagChat />
       </Drawer>
 
+      <ProductConfigManager
+        open={productConfigOpen}
+        products={productList}
+        unrecognizedProducts={unrecognizedProducts}
+        onClose={() => setProductConfigOpen(false)}
+        onChange={handleProductListChange}
+      />
+
       <div className=" max-w-[80%] bg-white mx-auto my-5">
         <PageBackGuard />
-        <LoadFileCsv callback={csvDataCallback} />
+        <LoadFileCsv
+          callback={csvDataCallback}
+          productList={productList}
+          unrecognizedProductCount={unrecognizedProducts.length}
+          onManageProducts={() => setProductConfigOpen(true)}
+          onUnrecognizedProducts={handleUnrecognizedProducts}
+        />
         <ReprotShow
           data={reportList}
           repairDataList={pendingRepairList}

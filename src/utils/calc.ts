@@ -7,6 +7,7 @@ import type {
   ReportItem,
   ReportCalcConstructorParams,
   AdvertisingBillData,
+  ProductConfig,
 } from "@/types/common";
 
 /**
@@ -28,148 +29,7 @@ import type {
  * 计算报表类
  */
 class ReportCalc {
-  productList = [
-    {
-      __no: 1,
-      __name: "门后-单黑",
-      __fnsku: "X003IDW07X",
-      __asin: "B0BMF6VST8",
-      __sku: "hook01",
-      __ads: ["门后衣架-基础自动广告", "手动over the door hook"],
-      __coupon: [
-        "Black Over the Door Hanger",
-        "black on over the door hanger",
-        "over the door hanger",
-      ],
-
-      //设置默认值 进价、重量、国内物流、海运报价、海运费
-      __default_extra_purchase_price: "14.8", //进价
-      __default_extra_weight: "840", //重量
-      __default_extra_inside_express_price: "1", //国内物流
-      __default_extra_shipping_price: "7", //海运报价
-      //分类
-      __category: "门后",
-    },
-    {
-      __no: 2,
-      __name: "门后-孖黑",
-      __fnsku: "X003TKCFCF",
-      __asin: "B0C538JL1X",
-      __sku: "hook02",
-      __ads: [],
-      __coupon: ["2 Pack Door Hanger", "2 pack door hanger"],
-
-      __default_extra_purchase_price: "29.4", //进价
-      __default_extra_weight: "970", //重量
-      __default_extra_inside_express_price: "1.5", //国内物流
-      __default_extra_shipping_price: "7", //海运报价
-
-      __category: "门后",
-    },
-    {
-      __no: 3,
-      __name: "门后-单白",
-      __fnsku: "X0048XOI7H",
-      __asin: "B0D4MCXCC6",
-      __sku: "hook01-white",
-      __ads: [],
-      __coupon: ["White Over the Door Hanger", "over the door towel rack"],
-
-      __default_extra_purchase_price: "14.8", //进价
-      __default_extra_weight: "840", //重量
-      __default_extra_inside_express_price: "1", //国内物流
-      __default_extra_shipping_price: "7", //海运报价
-
-      __category: "门后",
-    },
-    {
-      __no: 4,
-      __name: "T18褐色",
-      __fnsku: "X004EJ05W7",
-      __asin: "B0DHL54ZV4",
-      __sku: "T-tie-red01",
-      __ads: ["T18自动广告活动"],
-      __coupon: [
-        "tie rack hanger for closet",
-        "Tie Rack Hanger for Closet",
-        "Tie Hangers for Men",
-      ],
-
-      __default_extra_purchase_price: "7", //进价
-      __default_extra_weight: "170", //重量
-      __default_extra_inside_express_price: "0.3", //国内物流
-      __default_extra_shipping_price: "7", //海运报价
-
-      __category: "T18",
-    },
-    {
-      __no: 5,
-      __name: "T18黑",
-      __fnsku: "X004EJ051D",
-      __asin: "B0DHQ8QGQG",
-      __sku: "T-tie-black01",
-      __ads: ["T18-手动精准-推Tie Hanger"],
-      __coupon: ["tie organizer for men"],
-
-      __default_extra_purchase_price: "7", //进价
-      __default_extra_weight: "170", //重量
-      __default_extra_inside_express_price: "0.3", //国内物流
-      __default_extra_shipping_price: "7", //海运报价
-
-      __category: "T18",
-    },
-    {
-      __no: 6,
-      __name: "T18褐双",
-      __fnsku: "X004Q4DZLX",
-      __asin: "B0FDFSKK4L",
-      __sku: "T-tie-red002",
-      __ads: [],
-      __coupon: [],
-
-      __default_extra_purchase_price: "14", //进价
-      __default_extra_weight: "340", //重量
-      __default_extra_inside_express_price: "0.3", //国内物流
-      __default_extra_shipping_price: "7", //海运报价
-
-      __category: "T18",
-    },
-    {
-      __no: 7,
-      __name: "双14墙挂黑",
-      __fnsku: "X004DAC1AV",
-      __asin: "B0DDXB7T2H",
-      __sku: "tie-wall-02black",
-      __ads: [
-        "2Pack Wall Mounted Tie Rack Black",
-        "墙挂14钩-手动-tie wall closet",
-      ],
-      __coupon: [],
-
-      __default_extra_purchase_price: "14.5", //进价
-      __default_extra_weight: "370", //重量
-      __default_extra_inside_express_price: "0.3", //国内物流
-      __default_extra_shipping_price: "7", //海运报价
-
-      __category: "墙14",
-    },
-    {
-      __no: 8,
-      __name: "双14墙挂白",
-      __fnsku: "X004DA8SY9",
-      __asin: "B0DDX41KTY",
-      __sku: "tie-wall-02white",
-      __ads: ["2Pack Wall Mounted Tie Rack White"],
-      __coupon: [],
-
-      __default_extra_purchase_price: "14.5", //进价
-      __default_extra_weight: "370", //重量
-      __default_extra_inside_express_price: "0.3", //国内物流
-      __default_extra_shipping_price: "7", //海运报价
-
-      __category: "墙14",
-    },
-  ];
+  productList: ProductConfig[];
 
   orderData: Array<OrderHeaderKeyTypeObject> = [];
   // 备份
@@ -192,7 +52,12 @@ class ReportCalc {
   // 仓储费 先保存下来，待处理
   FBAInventoryFee: Array<OrderHeaderKeyTypeObject> = [];
 
-  constructor({ orderData, storageData }: ReportCalcConstructorParams) {
+  constructor({ orderData, storageData, productList }: ReportCalcConstructorParams) {
+    this.productList = productList.map((product) => ({
+      ...product,
+      __ads: [...product.__ads],
+      __coupon: [...product.__coupon],
+    }));
     this.orderData = orderData
       .map((o, idx) => {
         return {
@@ -229,8 +94,11 @@ class ReportCalc {
         __key: idx + 1,
       } as ReportItem);
     });
+    // 按分类分组排序：同分类产品排在一起，分类内按 __no 排序
     return arr.sort((n1, n2) => {
-      return n1.__no - n2.__no;
+      const categoryCompare = (n1.__category || "").localeCompare(n2.__category || "", "zh-CN");
+      if (categoryCompare !== 0) return categoryCompare;
+      return (n1.__no || 0) - (n2.__no || 0);
     });
   }
 
@@ -573,7 +441,7 @@ class ReportCalc {
     let target = that.productList.find((item) => item.__sku === sku);
 
     if (!target) {
-      throw new Error(`${sku}异常`);
+      throw new Error(`未配置产品 SKU：${sku}`);
     }
 
     let combineSku = [target.__sku, target.__fnsku, target.__asin];

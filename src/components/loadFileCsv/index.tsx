@@ -4,6 +4,7 @@ import numbro from "numbro";
 import { CURRENCY_FORMATTER_OBJECT } from "@/types/common";
 // import { loadOrderByMock, loadStorageByMock } from "@/mockdata/test";
 import { Button, message, Spin, Tag } from "antd";
+import { SettingOutlined } from "@ant-design/icons";
 // import { CloseOutlined } from "@ant-design/icons";
 import { getAdsFromCache } from "@/utils/common";
 import type {
@@ -12,10 +13,19 @@ import type {
   RawStorageRow,
   ReportFileType,
   ResultAdvertisingBillData,
+  ProductConfig,
 } from "@/types/common";
 import { cn } from "@/utils/classnames";
+import {
+  findUnrecognizedProducts,
+  type UnrecognizedProductReference,
+} from "@/config/products";
 type LoadFileCsvProps = {
   callback: (params: CallbackParams) => void;
+  productList: ProductConfig[];
+  unrecognizedProductCount: number;
+  onManageProducts: () => void;
+  onUnrecognizedProducts: (products: UnrecognizedProductReference[]) => void;
 };
 
 type CsvReportFileType = Exclude<ReportFileType, "ads">;
@@ -28,7 +38,13 @@ type ParsedCsvRow<T extends CsvReportFileType> = T extends "order"
  * @param param0
  * @returns
  */
-function LoadFileCsv({ callback }: LoadFileCsvProps) {
+function LoadFileCsv({
+  callback,
+  productList,
+  unrecognizedProductCount,
+  onManageProducts,
+  onUnrecognizedProducts,
+}: LoadFileCsvProps) {
   // const IS_TEST_MODEL = true;
   const [showPanel, setShowPanel] = useState(true);
   const [spinning, setSpinning] = useState(false);
@@ -154,7 +170,7 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
             // 动态跳过说明文字
             beforeFirstChunk: (chunk) => {
               if (skipRows === 0) return chunk;
-              let lines = chunk.split(/\r\n|\r|\n/);
+              const lines = chunk.split(/\r\n|\r|\n/);
               lines.splice(0, skipRows);
               return lines.join("\n");
             },
@@ -210,16 +226,6 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
     //   return
     // }
     try {
-      if (selectedAdsFile) {
-        setSpinning(true);
-        setSpinningDescription("广告报表处理中...");
-      }
-      const adsData: ResultAdvertisingBillData | Record<string, never> = selectedAdsFile
-        ? await getAdsFromCache(selectedAdsFile)
-        : {};
-
-      setSpinning(false);
-      setSpinningDescription("");
       const orderData = await parseCsvWithDynamicHeader(
         selectedOrderFile,
         "order",
@@ -228,6 +234,26 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
         selectedStorageFile,
         "storage",
       );
+      const unrecognizedProducts = findUnrecognizedProducts(
+        orderData,
+        storageData,
+        productList,
+      );
+      if (unrecognizedProducts.length > 0) {
+        onUnrecognizedProducts(unrecognizedProducts);
+        message.warning(
+          `发现 ${unrecognizedProducts.length} 项未配置产品标识，请先完成产品配置`,
+        );
+        return;
+      }
+
+      onUnrecognizedProducts([]);
+      if (selectedAdsFile) {
+        setSpinning(true);
+        setSpinningDescription("广告报表处理中...");
+      }
+      const adsData: ResultAdvertisingBillData | Record<string, never> =
+        selectedAdsFile ? await getAdsFromCache(selectedAdsFile) : {};
       // console.log(orderData);
       // console.log(storageData);
 
@@ -248,21 +274,38 @@ function LoadFileCsv({ callback }: LoadFileCsvProps) {
           message: error.message,
         });
       }
+    } finally {
+      setSpinning(false);
+      setSpinningDescription("");
     }
   }
 
   return (
     <>
       <Spin spinning={spinning} description={spinningDescription} fullscreen />
-      <Button
-        type="dashed"
-        variant="solid"
-        shape="round"
-        size="medium"
-        onClick={() => setShowPanel(!showPanel)}
-      >
-        {showPanel ? "隐藏导入区" : "显示导入区"}
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="dashed"
+          variant="solid"
+          shape="round"
+          size="medium"
+          onClick={() => setShowPanel(!showPanel)}
+        >
+          {showPanel ? "隐藏导入区" : "显示导入区"}
+        </Button>
+        <Button
+          danger={unrecognizedProductCount > 0}
+          type={unrecognizedProductCount > 0 ? "primary" : "default"}
+          shape="round"
+          size="medium"
+          icon={<SettingOutlined />}
+          onClick={onManageProducts}
+        >
+          {unrecognizedProductCount > 0
+            ? `待配置产品 (${unrecognizedProductCount})`
+            : `产品配置 (${productList.length})`}
+        </Button>
+      </div>
 
       <div
         className={cn(

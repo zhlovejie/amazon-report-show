@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import type {
   CSSProperties,
   KeyboardEvent,
+  UIEvent,
 } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -10,6 +11,7 @@ import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 // ─── 配置 ────────────────────────────────────────────────────────────
 const BASE_URL = "http://139.196.209.52:8008";
+const AUTO_SCROLL_THRESHOLD = 48;
 
 type ChatRole = "user" | "assistant";
 
@@ -344,7 +346,9 @@ export default function RagChat() {
   );
   const [input, setInput]       = useState("");
   const [streaming, setStreaming] = useState(false);
-  const msgEndRef  = useRef<HTMLDivElement>(null);
+  const msgAreaRef = useRef<HTMLDivElement>(null);
+  const shouldAutoScrollRef = useRef(true);
+  const lastScrollTopRef = useRef(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -352,8 +356,41 @@ export default function RagChat() {
   }, [convs]);
 
   useEffect(() => {
-    msgEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [convs, activeId, streaming]);
+    shouldAutoScrollRef.current = true;
+    const frame = requestAnimationFrame(() => {
+      const el = msgAreaRef.current;
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+        lastScrollTopRef.current = el.scrollTop;
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [activeId]);
+
+  useEffect(() => {
+    if (!shouldAutoScrollRef.current) return;
+
+    const frame = requestAnimationFrame(() => {
+      if (!shouldAutoScrollRef.current) return;
+      const el = msgAreaRef.current;
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+        lastScrollTopRef.current = el.scrollTop;
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [convs, streaming]);
+
+  const handleMessagesScroll = useCallback((e: UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (el.scrollTop < lastScrollTopRef.current) {
+      shouldAutoScrollRef.current = false;
+    } else if (distanceFromBottom <= AUTO_SCROLL_THRESHOLD) {
+      shouldAutoScrollRef.current = true;
+    }
+    lastScrollTopRef.current = el.scrollTop;
+  }, []);
 
   const autoResize = () => {
     const el = textareaRef.current;
@@ -391,6 +428,8 @@ export default function RagChat() {
   const send = useCallback(async () => {
     const q = input.trim();
     if (!q || streaming || !activeConv) return;
+
+    shouldAutoScrollRef.current = true;
 
     const history: ChatHistoryMessage[] = activeConv.messages.map(
       ({ role, content }) => ({ role, content }),
@@ -466,7 +505,9 @@ export default function RagChat() {
                 ),
               }));
             }
-          } catch {}
+          } catch {
+            continue;
+          }
         }
       }
     } catch (err) {
@@ -520,7 +561,7 @@ export default function RagChat() {
 
         {/* 主区域 */}
         <main style={s.main}>
-          <div style={s.msgArea}>
+          <div ref={msgAreaRef} style={s.msgArea} onScroll={handleMessagesScroll}>
             {msgs.length === 0
               ? <div style={s.empty}>
                   <Icon d={Icons.msg} size={32} />
@@ -534,7 +575,7 @@ export default function RagChat() {
                   />
                 ))
             }
-            <div ref={msgEndRef} />
+            <div aria-hidden="true" />
           </div>
 
           <div style={s.inputBar}>
