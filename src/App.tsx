@@ -6,12 +6,13 @@ import RagChat from "./components/RgaAmazonChat"
 import ProductConfigManager from "./components/ProductConfigManager";
 import { Button, Drawer, message } from "antd";
 import { RobotOutlined } from "@ant-design/icons";
+import type { ProductConfig } from "@/types/product";
 import type {
-  CallbackParams,
+  PendingOrderRow,
   ReportItem,
-  IReportSourceData,
-  ProductConfig,
-} from "@/types/common";
+  ReportSourceData,
+} from "@/types/report";
+import type { FileImportResult } from "@/types/workflow";
 import { ReportCalc } from "@/utils/calc";
 import { useMemo, useState } from "react";
 import {
@@ -22,19 +23,19 @@ import {
 
 function App() {
   const [reportList, setReportList] = useState<Array<ReportItem>>([]);
-  const [pendingList, setPendingList] = useState<Array<ReportItem>>([]);
+  const [pendingList, setPendingList] = useState<PendingOrderRow[]>([]);
   const [ragChatOpen, setRagChatOpen] = useState(false);
   const [productConfigOpen, setProductConfigOpen] = useState(false);
   const [productList, setProductList] = useState<ProductConfig[]>(loadProductList);
   const [unrecognizedProducts, setUnrecognizedProducts] = useState<
     UnrecognizedProductReference[]
   >([]);
-  const [pendingRepairList, setPendingRepairList] = useState<Array<ReportItem>>(
+  const [pendingRepairList, setPendingRepairList] = useState<PendingOrderRow[]>(
     [],
   );
 
   // 原始数据计算总回款
-  const [reportSourceData, setReportSourceData] = useState<IReportSourceData>({
+  const [reportSourceData, setReportSourceData] = useState<ReportSourceData>({
     payment: "0",
     ads: "0",
     storage: "0",
@@ -47,7 +48,7 @@ function App() {
   //sku 列表
   //
 
-  function csvDataCallback(params: CallbackParams) {
+  function csvDataCallback(params: FileImportResult) {
     if (params.status === "error") {
       console.error(params.message);
       return;
@@ -68,7 +69,7 @@ function App() {
     setReportSourceData(ReportCalcInstance.getSourceData());
   }
 
-  function handlePendingRepairList(dataList: Array<ReportItem>) {
+  function handlePendingRepairList(dataList: PendingOrderRow[]) {
     setPendingRepairList(dataList);
   }
 

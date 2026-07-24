@@ -1,4 +1,4 @@
-﻿import type { ReportItem, CategoryTableRow } from "@/types/common";
+﻿import type { CategoryProfitRow, ReportItem } from "@/types/report";
 import Decimal from "decimal.js";
 // ============================================================
 // 第一步：把所有计算函数提到组件外部，接收 rate 作为显式参数
@@ -190,7 +190,7 @@ interface CalcTotalResult {
   totalExtraPaymentCollection: string;
   avgRateGrossProfit: string;
   totalSku: number;
-  categoryData: Array<CategoryTableRow>;
+  categoryData: CategoryProfitRow[];
 }
 
 function calcTotalFromSnapshot(
@@ -214,7 +214,7 @@ function calcTotalFromSnapshot(
   const categoryList = [
     ...new Set(snapshot.map((item) => item.__category as string)),
   ];
-  const categoryData: Array<CategoryTableRow> = categoryList.map((category) => {
+  const categoryData: CategoryProfitRow[] = categoryList.map((category) => {
     const gross_profit_doller = snapshot
       .filter((item) => item.__category === category)
       .reduce((arr, cur) => arr.add(cur.extra_gross_profit as string), D(0))

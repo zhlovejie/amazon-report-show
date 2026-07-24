@@ -1,4 +1,4 @@
-import type { ResultAdvertisingBillData } from "@/types/common";
+import type { AdvertisingBillResponse } from "@/types/advertising";
 /**
  * 使用 fetch 发起包含文件的 POST 请求
  * @param {string} url - 接口地址
@@ -34,7 +34,7 @@ async function deepseek_parse_pdf(file:File) {
 
     // 根据后端返回的格式选择解析方式：json() / text() / blob() 等
     const result = await response.json();
-    return result as ResultAdvertisingBillData;
+    return result as AdvertisingBillResponse;
 
   } catch (error) {
     console.error('上传失败：', error);

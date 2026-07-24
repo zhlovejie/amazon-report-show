@@ -1,9 +1,10 @@
 ﻿import type {
+  CategoryProfitRow,
+  PendingOrderRow,
   ReportItem,
   ReportItemCalculatedFields,
-  CategoryTableRow,
-  IReportSourceData,
-} from "@/types/common";
+  ReportSourceData,
+} from "@/types/report";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/utils/classnames";
 // import Button from "@/components/Button";
@@ -41,9 +42,9 @@ import { TableSummaryRow } from "@/components/TableSummaryRow";
 
 interface ReprotShowProps {
   data: Array<ReportItem>;
-  repairDataList: Array<ReportItem>;
+  repairDataList: PendingOrderRow[];
   className?: string;
-  reportSourceData: IReportSourceData;
+  reportSourceData: ReportSourceData;
 }
 
 type EditableReportField = keyof ReportItemCalculatedFields;
@@ -89,7 +90,7 @@ function ReprotShow({
   const [reportData, setReportData] = useImmer<Array<ReportItem>>([]);
 
   const [categtoryProductData, setCategtoryProductData] = useImmer<
-    Array<CategoryTableRow>
+    CategoryProfitRow[]
   >([]);
 
   // 记录鼠标移动到当前row

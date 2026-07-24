@@ -1,4 +1,5 @@
-import type { ProductConfig, RawOrderRow, RawStorageRow } from "@/types/common";
+import type { ProductConfig } from "@/types/product";
+import type { RawOrderRow, RawStorageRow } from "@/types/report-source";
 
 export interface UnrecognizedProductReference {
   source: "order" | "storage";

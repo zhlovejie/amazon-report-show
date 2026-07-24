@@ -1,14 +1,18 @@
 ﻿import _ from "lodash";
 import Decimal from "decimal.js";
+import type { AdvertisingBillData } from "@/types/advertising";
+import type { ProductConfig } from "@/types/product";
 import type {
-  OrderHeaderKeyTypeObject,
-  StorageHeaderKeyTypeObject,
-  ReportObjectType,
+  PendingOrderRow,
   ReportItem,
-  ReportCalcConstructorParams,
-  AdvertisingBillData,
-  ProductConfig,
-} from "@/types/common";
+  ReportMap,
+} from "@/types/report";
+import type {
+  RawOrderRow,
+  TrackedOrderRow,
+  TrackedStorageRow,
+} from "@/types/report-source";
+import type { ReportCalculatorInput } from "@/types/workflow";
 
 /**
  * 一月 - January (Jan)
@@ -31,28 +35,28 @@ import type {
 class ReportCalc {
   productList: ProductConfig[];
 
-  orderData: Array<OrderHeaderKeyTypeObject> = [];
+  orderData: TrackedOrderRow[] = [];
   // 备份
-  __orderDataCache: Array<OrderHeaderKeyTypeObject> = [];
-  storageData: Array<StorageHeaderKeyTypeObject> = [];
+  __orderDataCache: RawOrderRow[] = [];
+  storageData: TrackedStorageRow[] = [];
 
   skuList: Array<string> = [];
 
   //  记录报表类型处理进度
   typeList = {} as { [key: string]: boolean };
 
-  report: ReportObjectType = {};
+  report: ReportMap = {};
 
   // type Order_Retrocharge Refund_Retrocharge 先保存下来，待处理
-  OrderRetrochargeTypeAndRefundRetrochargeType: Array<OrderHeaderKeyTypeObject> =
+  OrderRetrochargeTypeAndRefundRetrochargeType: TrackedOrderRow[] =
     [];
 
   // type Amazon Fees 先保存下来，待处理
-  AmazonFees: Array<OrderHeaderKeyTypeObject> = [];
+  AmazonFees: TrackedOrderRow[] = [];
   // 仓储费 先保存下来，待处理
-  FBAInventoryFee: Array<OrderHeaderKeyTypeObject> = [];
+  FBAInventoryFee: TrackedOrderRow[] = [];
 
-  constructor({ orderData, storageData, productList }: ReportCalcConstructorParams) {
+  constructor({ orderData, storageData, productList }: ReportCalculatorInput) {
     this.productList = productList.map((product) => ({
       ...product,
       __ads: [...product.__ads],
@@ -102,13 +106,13 @@ class ReportCalc {
     });
   }
 
-  getPendingList() {
+  getPendingList(): PendingOrderRow[] {
     let that = this;
     return that.orderData
       .filter((o) => o.__status === "pending")
       .sort((n1, n2) =>
         n1.type > n2.type ? 1 : -1,
-      ) as unknown as Array<ReportItem>;
+      );
   }
 
   // 计算总回款  除去type = Transfer 之外的 total的汇总
@@ -316,7 +320,7 @@ class ReportCalc {
     const other_value = other_column
       .map((col) => {
         let res = orderTypeList.reduce((initVal, item) => {
-          return initVal.add(item[col as keyof OrderHeaderKeyTypeObject]);
+          return initVal.add(item[col as keyof TrackedOrderRow]);
         }, Decimal(0));
         return res;
       })

@@ -1,9 +1,9 @@
-﻿import type { ReportItem } from "@/types/common";
+﻿import type { PendingOrderRow } from "@/types/report";
 import { useEffect, useMemo, useState } from "react";
 import type {
   PendingRepairFields,
   ReportItemCalculatedFields,
-} from "@/types/common";
+} from "@/types/report";
 import { useImmer } from "use-immer";
 import { cn } from "@/utils/classnames";
 import { Button, Select, Table, Tag, Modal, Badge } from "antd";
@@ -13,17 +13,17 @@ import _ from "lodash";
 import Decimal from "decimal.js";
 
 interface PendingListProps {
-  data: Array<ReportItem>;
+  data: PendingOrderRow[];
   skulist: Array<string>;
-  callback: (data: Array<ReportItem>) => void;
+  callback: (data: PendingOrderRow[]) => void;
   className?: string;
 }
 
 const { warning } = Modal;
 
 function PendingList({ data, skulist, className, callback }: PendingListProps) {
-  const [reportData, setReportData] = useImmer<Array<ReportItem>>([]);
-  const columns: TableProps<ReportItem>["columns"] = [
+  const [reportData, setReportData] = useImmer<PendingOrderRow[]>([]);
+  const columns: TableProps<PendingOrderRow>["columns"] = [
     {
       key: "__order__",
       title: "序号",
@@ -236,7 +236,7 @@ function PendingList({ data, skulist, className, callback }: PendingListProps) {
     });
   }
 
-  function handleRepairAll(record?: ReportItem) {
+  function handleRepairAll(record?: PendingOrderRow) {
     let __pendingList = record
       ? [record]
       : reportData.filter((item) => item.__status === "pending");
@@ -278,7 +278,7 @@ function PendingList({ data, skulist, className, callback }: PendingListProps) {
 
 
 
-  const stylesFn: TableProps<ReportItem>["styles"] = () => {
+  const stylesFn: TableProps<PendingOrderRow>["styles"] = () => {
     return {
       title: {
         backgroundColor: "#f6eedf",
@@ -294,7 +294,7 @@ function PendingList({ data, skulist, className, callback }: PendingListProps) {
    * @param data 
    * @returns 
    */
-  function preFormatData(data:Array<ReportItem>){
+  function preFormatData(data: PendingOrderRow[]) {
     const result = _.chain(data)
     .groupBy(item => `${item['settlement id']}_${item['type']}_${item['description']}`) // 按 settlement id+type+description 分组
     .map(group => {
@@ -331,7 +331,7 @@ function PendingList({ data, skulist, className, callback }: PendingListProps) {
 
   return (
     <div className={cn("w-full overflow-auto", className)}>
-      <Table<ReportItem>
+      <Table<PendingOrderRow>
         scroll={{ x: "max-content" }}
         styles={stylesFn}
         title={() => {

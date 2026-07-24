@@ -1,3 +1,4 @@
+import type { CategoryProfitRow } from "@/types/report";
 import { cn } from "@/utils/classnames";
 import { Button, message, Table, type TableProps } from "antd";
 import { useEffect, useState } from "react";
@@ -5,19 +6,14 @@ import { copyToClipboard, calcSummaryData } from "@/utils/common";
 
 import { TableSummaryRow } from "@/components/TableSummaryRow";
 
-interface CategoryTableRow {
-  name: string;
-  gross_profit_rmb: string;
-  gross_profit_doller: string;
-}
 interface CategoryTableListProps {
-  data: Array<CategoryTableRow>;
+  data: CategoryProfitRow[];
   className?: string;
 }
 
 function CategoryTableList({ className, data }: CategoryTableListProps) {
-  const [reportData, setReportData] = useState<Array<CategoryTableRow>>([]);
-  const columns: TableProps<CategoryTableRow>["columns"] = [
+  const [reportData, setReportData] = useState<CategoryProfitRow[]>([]);
+  const columns: TableProps<CategoryProfitRow>["columns"] = [
     {
       key: "order",
       title: "序号",
@@ -87,7 +83,7 @@ function CategoryTableList({ className, data }: CategoryTableListProps) {
     // 复制行数据
     const data = reportData.map((item) => {
       const rowData = headerList
-        ?.map((h) => item[h.key as keyof CategoryTableRow])
+        ?.map((h) => item[h.key as keyof CategoryProfitRow])
         .join("\t");
       return rowData;
     });
@@ -100,7 +96,7 @@ function CategoryTableList({ className, data }: CategoryTableListProps) {
 
     const summary = headerList
       ?.map((h, idx) => {
-        let cell = summaryObj[h.key as keyof CategoryTableRow] || "-";
+        let cell = summaryObj[h.key as keyof CategoryProfitRow] || "-";
         return idx === 0 ? "汇总统计" : cell.value;
       })
       .join("\t");
@@ -128,7 +124,7 @@ function CategoryTableList({ className, data }: CategoryTableListProps) {
           复制表格数据
         </Button>
       </div>
-      <Table<CategoryTableRow>
+      <Table<CategoryProfitRow>
         rowKey={(record) => record.name}
         size="small"
         bordered

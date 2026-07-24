@@ -29,7 +29,7 @@ import {
   isDefaultProduct,
   type UnrecognizedProductReference,
 } from "@/config/products";
-import type { ProductConfig } from "@/types/common";
+import type { ProductConfig } from "@/types/product";
 
 interface ProductConfigManagerProps {
   open: boolean;

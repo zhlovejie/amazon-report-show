@@ -1,34 +1,34 @@
 import { useRef, useState } from "react";
 import Papa from "papaparse";
 import numbro from "numbro";
-import { CURRENCY_FORMATTER_OBJECT } from "@/types/common";
+import { NUMERIC_COLUMNS_BY_REPORT } from "@/types/report-source";
 // import { loadOrderByMock, loadStorageByMock } from "@/mockdata/test";
 import { Button, message, Spin, Tag } from "antd";
 import { SettingOutlined } from "@ant-design/icons";
 // import { CloseOutlined } from "@ant-design/icons";
 import { getAdsFromCache } from "@/utils/common";
+import type { AdvertisingBillResponse } from "@/types/advertising";
+import type { ProductConfig } from "@/types/product";
 import type {
-  CallbackParams,
+  CsvReportFileType,
   RawOrderRow,
   RawStorageRow,
   ReportFileType,
-  ResultAdvertisingBillData,
-  ProductConfig,
-} from "@/types/common";
+} from "@/types/report-source";
+import type { FileImportResult } from "@/types/workflow";
 import { cn } from "@/utils/classnames";
 import {
   findUnrecognizedProducts,
   type UnrecognizedProductReference,
 } from "@/config/products";
 type LoadFileCsvProps = {
-  callback: (params: CallbackParams) => void;
+  callback: (params: FileImportResult) => void;
   productList: ProductConfig[];
   unrecognizedProductCount: number;
   onManageProducts: () => void;
   onUnrecognizedProducts: (products: UnrecognizedProductReference[]) => void;
 };
 
-type CsvReportFileType = Exclude<ReportFileType, "ads">;
 type ParsedCsvRow<T extends CsvReportFileType> = T extends "order"
   ? RawOrderRow
   : RawStorageRow;
@@ -176,7 +176,7 @@ function LoadFileCsv({
             },
             transform: function (value, column) {
               // --- 保持你原有的货币转换逻辑 ---
-              const column_list = CURRENCY_FORMATTER_OBJECT[type];
+              const column_list = NUMERIC_COLUMNS_BY_REPORT[type];
               if (Array.isArray(column_list) && column_list.length > 0) {
                 const column_str = String(column).trim();
                 if ((column_list as readonly string[]).includes(column_str)) {
@@ -252,7 +252,7 @@ function LoadFileCsv({
         setSpinning(true);
         setSpinningDescription("广告报表处理中...");
       }
-      const adsData: ResultAdvertisingBillData | Record<string, never> =
+      const adsData: AdvertisingBillResponse | Record<string, never> =
         selectedAdsFile ? await getAdsFromCache(selectedAdsFile) : {};
       // console.log(orderData);
       // console.log(storageData);
